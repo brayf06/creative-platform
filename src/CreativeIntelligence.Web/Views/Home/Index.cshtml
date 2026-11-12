@@ -1,0 +1,76 @@
+﻿@model DashboardViewModel
+@{
+    ViewData["Title"] = "Inicio";
+    DashboardOverview overview = Model.Overview;
+    NextStep next = DashboardRules.Next(overview);
+}
+<h1 class="h3 mb-1">Inicio</h1>
+<p class="text-secondary">@User.FindFirst(OrgClaims.OrganizationName)?.Value</p>
+
+<div class="alert @(next.Urgent ? "alert-warning" : "alert-primary") d-flex flex-wrap justify-content-between align-items-center gap-2" id="next-step">
+    <div><span class="fw-semibold">@(next.Urgent ? "Para atender ahora:" : "Paso siguiente:")</span> @next.Text</div>
+    <a class="btn btn-sm @(next.Urgent ? "btn-warning" : "btn-primary")" asp-controller="@next.Controller" asp-action="@next.Action">Ir</a>
+</div>
+
+<h2 class="h6 text-uppercase text-secondary mt-4">El recorrido</h2>
+<div class="row g-3" id="stages">
+    <div class="col-md-6 col-xl">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="small text-secondary">1 · Biblioteca</div>
+                <div class="fs-4 fw-semibold">@overview.MediaFiles <span class="fs-6 fw-normal text-secondary">archivo(s)</span></div>
+                <p class="small text-secondary">@overview.ProductionSegments fragmento(s) elegidos para producción.</p>
+                <a class="stretched-link" asp-controller="Media" asp-action="Index">Videos y archivos</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="small text-secondary">2 · Producción</div>
+                <div class="fs-4 fw-semibold">@overview.ReadyVideos <span class="fs-6 fw-normal text-secondary">video(s) generados</span></div>
+                <p class="small text-secondary">@overview.Recipes receta(s).</p>
+                <a class="stretched-link" asp-controller="Recipes" asp-action="Videos">Videos generados</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="small text-secondary">3 · Estrategia</div>
+                <div class="fs-4 fw-semibold">@overview.Briefs <span class="fs-6 fw-normal text-secondary">brief(s)</span></div>
+                <p class="small text-secondary">@overview.Brands marca(s).</p>
+                <a class="stretched-link" asp-controller="Briefs" asp-action="Index">Briefs</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="small text-secondary">4 · Resultados</div>
+                <div class="fs-4 fw-semibold">@overview.Ads <span class="fs-6 fw-normal text-secondary">anuncio(s) con métricas</span></div>
+                <p class="small text-secondary">
+                    @overview.LinkedAds vinculado(s) a un video · @overview.Hypotheses hipótesis en pie · @overview.ActiveLearnings aprendizaje(s) vigentes.
+                </p>
+                <a class="stretched-link" asp-controller="Meta" asp-action="Index">Rendimiento de los anuncios</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl">
+        <div class="card h-100 @(overview.PendingApprovals + overview.OpenAnomalies > 0 ? "border-warning" : "")">
+            <div class="card-body">
+                <div class="small text-secondary">5 · Automatización</div>
+                <div class="fs-4 fw-semibold">@overview.PendingApprovals <span class="fs-6 fw-normal text-secondary">esperando aprobación</span></div>
+                <p class="small text-secondary">@overview.OpenAnomalies anomalía(s) sin revisar.</p>
+                <a class="stretched-link" asp-controller="Automation" asp-action="Index">Automatización</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<h2 class="h6 text-uppercase text-secondary mt-4">Trabajos en segundo plano</h2>
+<p class="small text-secondary mb-2" id="jobs-summary">
+    @Model.Jobs.Pending en cola · @Model.Jobs.Running en curso · @Model.Jobs.Succeeded terminados ·
+    <span class="@(Model.Jobs.Failed > 0 ? "text-danger fw-semibold" : "")">@Model.Jobs.Failed fallidos</span> · @Model.Jobs.Cancelled cancelados.
+    <a asp-controller="Jobs" asp-action="Index">Ver trabajos</a>
+</p>

@@ -1,0 +1,12 @@
+bin/
+obj/
+.vs/
+*.user
+storage/
+appsettings.Production.json
+node_modules/
+.venv/
+__pycache__/
+tools/media/models/
+watch/
+respaldo-antes-de-mvc/

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] · Creative Intelligence</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="bg-body-tertiary">
+    @{
+        // La sección del menú a la que pertenece la pantalla actual, para marcarla.
+        string controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
+        string action = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
+        string section = controller switch
+        {
+            "Home" => "inicio",
+            "Media" or "Search" or "Music" or "Scenes" => "biblioteca",
+            "Recipes" or "Batches" => "produccion",
+            "Brands" or "Briefs" or "Plans" or "Research" => "estrategia",
+            "Meta" or "Experiments" or "Hypotheses" or "Learnings" or "Priorities" or "ProductionPlans" => "resultados",
+            "Automation" => "automatizacion",
+            "Jobs" or "Members" or "WatchedFolders" or "AiCosts" or "Audit" or "Organizations" => "configuracion",
+            _ => string.Empty,
+        };
+        string Top(string name) => section == name ? "nav-link active" : "nav-link";
+        string Drop(string name) => section == name ? "nav-link dropdown-toggle active" : "nav-link dropdown-toggle";
+        string Item(string itemController, string? itemAction = null) =>
+            controller == itemController && (itemAction is null || action == itemAction) ? "dropdown-item active" : "dropdown-item";
+    }
+    <nav class="navbar navbar-expand-xl navbar-dark bg-dark">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand fw-semibold" asp-controller="Home" asp-action="Index">Creative Intelligence</a>
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Menú">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="mainNav">
+                    <ul class="navbar-nav me-auto">
+                        @if (User.OrganizationId() != 0)
+                        {
+                            <li class="nav-item"><a class="@Top("inicio")" asp-controller="Home" asp-action="Index">Inicio</a></li>
+                            <li class="nav-item dropdown">
+                                <a class="@Drop("biblioteca")" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Biblioteca</a>
+                                <ul class="dropdown-menu">
+                                    <li><a class="@Item("Media")" asp-controller="Media" asp-action="Index">Videos y archivos</a></li>
+                                    <li><a class="@Item("Search")" asp-controller="Search" asp-action="Index">Buscador de escenas</a></li>
+                                    <li><a class="@Item("Music")" asp-controller="Music" asp-action="Index">Música</a></li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a class="@Drop("produccion")" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Producción</a>
+                                <ul class="dropdown-menu">
+                                    <li><a class="@(controller == "Recipes" && action != "Videos" ? "dropdown-item active" : "dropdown-item")" asp-controller="Recipes" asp-action="Index">Recetas</a></li>
+                                    <li><a class="@Item("Batches")" asp-controller="Batches" asp-action="Index">Lotes</a></li>
+                                    <li><a class="@Item("Recipes", "Videos")" asp-controller="Recipes" asp-action="Videos">Videos generados</a></li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a class="@Drop("estrategia")" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Estrategia</a>
+                                <ul class="dropdown-menu">
+                                    <li><a class="@Item("Brands")" asp-controller="Brands" asp-action="Index">Marcas</a></li>
+                                    <li><a class="@(controller is "Briefs" or "Plans" ? "dropdown-item active" : "dropdown-item")" asp-controller="Briefs" asp-action="Index">Briefs y planes de conceptos</a></li>
+                                    <li><a class="@Item("Research")" asp-controller="Research" asp-action="Index">Investigación</a></li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a class="@Drop("resultados")" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Resultados</a>
+                                <ul class="dropdown-menu">
+                                    <li><h6 class="dropdown-header">Medir</h6></li>
+                                    <li><a class="@(controller == "Meta" && action != "Analysis" ? "dropdown-item active" : "dropdown-item")" asp-controller="Meta" asp-action="Index">Rendimiento de los anuncios</a></li>
+                                    <li><a class="@Item("Meta", "Analysis")" asp-controller="Meta" asp-action="Analysis">Análisis por componente</a></li>
+                                    <li><a class="@Item("Experiments")" asp-controller="Experiments" asp-action="Index">Experimentos</a></li>
+                                    <li><hr class="dropdown-divider" /></li>
+                                    <li><h6 class="dropdown-header">Aprender y decidir</h6></li>
+                                    <li><a class="@Item("Hypotheses")" asp-controller="Hypotheses" asp-action="Index">Hipótesis</a></li>
+                                    <li><a class="@Item("Learnings")" asp-controller="Learnings" asp-action="Index">Aprendizajes</a></li>
+                                    <li><a class="@Item("Priorities")" asp-controller="Priorities" asp-action="Index">Prioridades</a></li>
+                                    <li><a class="@Item("ProductionPlans")" asp-controller="ProductionPlans" asp-action="Index">Plan de producción</a></li>
+                                </ul>
+                            </li>
+                            <li class="nav-item"><a class="@Top("automatizacion")" asp-controller="Automation" asp-action="Index">Automatización</a></li>
+                            <li class="nav-item dropdown">
+                                <a class="@Drop("configuracion")" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Configuración</a>
+                                <ul class="dropdown-menu">
+                                    <li><a class="@Item("Jobs")" asp-controller="Jobs" asp-action="Index">Trabajos en segundo plano</a></li>
+                                    @if (User.IsOrgAdmin())
+                                    {
+                                        <li><a class="@Item("Members")" asp-controller="Members" asp-action="Index">Miembros</a></li>
+                                        <li><a class="@Item("WatchedFolders")" asp-controller="WatchedFolders" asp-action="Index">Carpetas vigiladas</a></li>
+                                        <li><a class="@Item("AiCosts")" asp-controller="AiCosts" asp-action="Index">Costos de IA</a></li>
+                                        <li><a class="@Item("Audit")" asp-controller="Audit" asp-action="Index">Auditoría</a></li>
+                                    }
+                                    @if (User.IsPlatformAdmin())
+                                    {
+                                        <li><a class="@Item("Organizations")" asp-controller="Organizations" asp-action="Index">Organizaciones</a></li>
+                                    }
+                                </ul>
+                            </li>
+                        }
+                        else if (User.IsPlatformAdmin())
+                        {
+                            <li class="nav-item"><a class="@Top("configuracion")" asp-controller="Organizations" asp-action="Index">Organizaciones</a></li>
+                        }
+                    </ul>
+                    <div class="d-flex align-items-center gap-3">
+                        @await Component.InvokeAsync("OrganizationSwitcher")
+                        <span class="navbar-text small text-truncate ci-user" style="max-width: 14rem;" title="@User.Identity.Name">@User.Identity.Name</span>
+                        <form asp-controller="Account" asp-action="Logout" method="post">
+                            <button type="submit" class="btn btn-sm btn-outline-light" title="Cerrar la sesión de @User.Identity.Name">Salir</button>
+                        </form>
+                    </div>
+                </div>
+            }
+        </div>
+    </nav>
+    <main class="container-fluid py-4 px-4">
+        <div id="alerts">
+            @if (TempData["Error"] is string error)
+            {
+                <div class="alert alert-danger" role="alert">@error</div>
+            }
+            @if (TempData["Ok"] is string ok)
+            {
+                <div class="alert alert-success" role="alert">@ok</div>
+            }
+        </div>
+        @RenderBody()
+    </main>
+
+    <form id="af-token" class="d-none">@Html.AntiForgeryToken()</form>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

@@ -1,0 +1,27 @@
+html { font-size: 15px; }
+.job-step { font-size: .8rem; }
+.job-error { max-width: 18rem; }
+.media-thumb-cell { width: 5.5rem; }
+.media-thumb { width: 4.5rem; height: 4.5rem; object-fit: cover; border-radius: .375rem; background: #212529; }
+.scene-strip { display: flex; gap: 0; height: 2.25rem; position: relative; }
+.scene-block + .scene-block { border-left: 2px solid #fff; }
+.scene-handle { position: absolute; top: -3px; bottom: -3px; width: 12px; margin-left: -6px; cursor: col-resize; touch-action: none; z-index: 2; }
+.scene-handle::before { content: ""; position: absolute; left: 5px; top: 0; bottom: 0; width: 2px; background: transparent; }
+.scene-handle:hover::before, .scene-handle.dragging::before { background: #dc3545; }
+.scene-handle.dragging::after { content: attr(data-time); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); font-size: .75rem; background: #212529; color: #fff; padding: 0 .35rem; border-radius: .25rem; white-space: nowrap; }
+.scene-block { flex: 0 0 auto; min-width: 6px; border: 0; border-radius: .25rem; background: #6ea8fe; color: #052c65; font-size: .75rem; overflow: hidden; }
+.scene-block:nth-child(even) { background: #9ec5fe; }
+.scene-block.active, .scene-block:hover { background: #0d6efd; color: #fff; }
+.scene-thumb { width: 3.5rem; height: 3.5rem; object-fit: cover; border-radius: .375rem; background: #212529; }.scene-block.scene-selected { box-shadow: inset 0 -4px 0 #198754; }.search-thumb { width: 5rem; height: 7rem; object-fit: cover; border-radius: .375rem; background: #212529; }
+.recipe-trim { width: 5rem; }
+.preview-frame { position: relative; width: 100%; background: #000; overflow: hidden; border-radius: .375rem; }
+.preview-frame video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.preview-text { position: absolute; left: 6%; right: 6%; text-align: center; color: #fff; font-weight: 700; font-size: .95rem; text-shadow: 0 0 3px #000, 0 0 3px #000, 0 0 3px #000; pointer-events: none; }
+.preview-top { top: 10%; }
+.preview-center { top: 50%; transform: translateY(-50%); }
+.preview-bottom { bottom: 25%; }
+
+/* Entre 1200 y 1300 px el menú completo no deja lugar para el nombre del usuario: se oculta (queda en el título del botón Salir). */
+@media (min-width: 1200px) and (max-width: 1299.98px) { .navbar .ci-user { display: none; } }
+/* La pestaña activa tiene que distinguirse sobre el fondo gris de la página. */
+.nav-tabs .nav-link.active { font-weight: 600; }

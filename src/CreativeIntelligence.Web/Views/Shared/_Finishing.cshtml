@@ -1,0 +1,40 @@
+@model List<MusicTrackItem>
+@* Terminación de un video: subtítulos, transición, música y textos. La comparten el editor de recetas y el de lotes;
+   finishing.js lee estos campos. *@
+<div id="finishing">
+    <h2 class="h6 mt-4">Terminación</h2>
+    <div class="form-check mb-2">
+        <input type="checkbox" class="form-check-input" id="fin-subtitles" />
+        <label for="fin-subtitles" class="form-check-label">Subtítulos con lo que se dice en cada fragmento</label>
+        <div class="form-text">Salen de la transcripción de cada video; un fragmento sin voz no lleva.</div>
+    </div>
+    <div class="row g-2 mb-3">
+        <div class="col-md-4">
+            <label for="fin-transition" class="form-label small">Transición</label>
+            <select class="form-select" id="fin-transition">
+                <option value="Cut">Corte directo</option>
+                <option value="FadeBlack">Fundido a negro</option>
+            </select>
+        </div>
+        <div class="col-md-5">
+            <label for="fin-music" class="form-label small">Música de fondo</label>
+            <select class="form-select" id="fin-music">
+                <option value="">Sin música</option>
+                @foreach (MusicTrackItem track in Model)
+                {
+                    <option value="@track.Id">@track.Name (@Formatting.Duration(track.DurationMs))</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="fin-volume" class="form-label small">Volumen (%)</label>
+            <input type="number" class="form-control" id="fin-volume" min="5" max="100" value="25" />
+        </div>
+        <div class="col-12 form-text">
+            Sólo aparecen las pistas con autorización vigente. <a asp-controller="Music" asp-action="Index" target="_blank">Administrar música</a>
+        </div>
+    </div>
+    <div class="small fw-semibold mb-1">Textos sobre el video</div>
+    <div id="fin-overlays"></div>
+    <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="fin-overlay-add">Agregar texto</button>
+</div>

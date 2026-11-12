@@ -1,0 +1,176 @@
+@model PerformanceAnalysis
+@{
+    ViewData["Title"] = "Análisis por componente";
+    Dictionary<string, string> functionNames = new()
+    {
+        ["Hook"] = "Hook", ["Problem"] = "Problema", ["Presentation"] = "Presentación", ["Demonstration"] = "Demostración",
+        ["Benefit"] = "Beneficio", ["SocialProof"] = "Prueba social", ["Objection"] = "Objeción", ["Comparison"] = "Comparación",
+        ["Offer"] = "Oferta", ["Cta"] = "CTA", ["Broll"] = "B-roll", ["Closing"] = "Cierre",
+    };
+}
+<nav class="small mb-2"><a asp-action="Index">Rendimiento</a> / Análisis por componente</nav>
+<h1 class="h3 mb-1">Análisis por componente</h1>
+<p class="text-secondary">
+    Agrupa los anuncios por lo que comparten sus creatividades y compara cada grupo con el resto. Lo que muestra son
+    <strong>correlaciones</strong>, no causas.
+</p>
+<details class="small text-secondary mb-3">
+    <summary>Cómo se lee esto</summary>
+    Que los anuncios con un fragmento hayan rendido distinto no prueba que el fragmento sea la causa: el presupuesto, la audiencia, la
+    fecha y la oferta también cuentan y acá no están controlados. Para comparar con más justicia, elegí una sola campaña. Para
+    comprobar una causa, guardá la lectura como hipótesis y probala con un experimento.
+</details>
+
+<form asp-action="Analysis" method="get" class="row g-2 align-items-end mb-3">
+    <div class="col-md-4">
+        <label for="CampaignId" class="form-label small">Campaña</label>
+        <select class="form-select" id="CampaignId" name="CampaignId">
+            <option value="">Todas</option>
+            @foreach (CampaignOption campaign in Model.Campaigns)
+            {
+                <option value="@campaign.Id" selected="@(Model.Filter.CampaignId == campaign.Id)">@campaign.Name</option>
+            }
+        </select>
+    </div>
+    <div class="col-auto">
+        <label for="From" class="form-label small">Desde</label>
+        <input type="date" class="form-control" id="From" name="From" value="@Model.Filter.From?.ToString("yyyy-MM-dd")" />
+    </div>
+    <div class="col-auto">
+        <label for="To" class="form-label small">Hasta</label>
+        <input type="date" class="form-control" id="To" name="To" value="@Model.Filter.To?.ToString("yyyy-MM-dd")" />
+    </div>
+    <div class="col-auto"><button type="submit" class="btn btn-outline-primary">Analizar</button></div>
+</form>
+
+<div class="alert @(Model.LinkedAds == 0 ? "alert-warning" : "alert-light border")" id="analysis-coverage">
+    @Model.LinkedAds de @Model.AdsWithData anuncio(s) con datos están vinculados a un video generado. El análisis sólo puede leer esos:
+    los demás no dicen de qué creatividad salieron.
+    @if (Model.LinkedAds < Model.AdsWithData)
+    {
+        <span>Vinculá los que falten desde <a asp-action="Index">Rendimiento</a>.</span>
+    }
+</div>
+
+@foreach (ComponentDimension dimension in Model.Dimensions.Where(d => d.Groups.Count > 0))
+{
+    <div class="card mb-4" data-dimension="@dimension.Name">
+        <div class="card-body">
+            <h2 class="h6 mb-0">@dimension.Title</h2>
+            <p class="small text-secondary">@dimension.Explanation</p>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Componente</th><th>Anuncios</th><th class="text-end">Impresiones</th><th class="text-end">Gasto</th>
+                            <th class="text-end">CTR</th><th class="text-end">CTR del resto</th><th class="text-end">Se quedan al empezar</th>
+                            <th class="text-end">CPA</th><th class="text-end">ROAS</th><th>Evidencia</th><th>Lectura</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (ComponentGroup group in dimension.Groups)
+                        {
+                            <tr>
+                                <td>
+                                    @if (group.Fragment is not null)
+                                    {
+                                        <a class="d-flex align-items-center gap-2 text-decoration-none" href="/Media/Detail/@group.Fragment.AssetId?at=@group.Fragment.StartMs">
+                                            @if (group.Fragment.SegmentId is not null)
+                                            {
+                                                <img class="scene-thumb" loading="lazy" alt="" src="/Scenes/Thumbnail/@group.Fragment.SegmentId" onerror="this.style.visibility='hidden'" />
+                                            }
+                                            <span class="small">
+                                                @group.Fragment.FileName
+                                                <span class="d-block text-secondary">@Formatting.Duration(group.Fragment.StartMs) – @Formatting.Duration(group.Fragment.EndMs)</span>
+                                            </span>
+                                        </a>
+                                    }
+                                    else if (dimension.Name == "structure")
+                                    {
+                                        <span>@string.Join(" → ", group.Key.Split('>').Select(k => functionNames.GetValueOrDefault(k, k)))</span>
+                                    }
+                                    else
+                                    {
+                                        <span>@group.Label</span>
+                                    }
+                                </td>
+                                <td>@group.Ads <span class="small text-secondary">(@group.Campaigns camp.)</span></td>
+                                <td class="text-end">@group.Metrics.Impressions</td>
+                                <td class="text-end">@Formatting.Number(group.Metrics.Spend, "0.00")</td>
+                                <td class="text-end">@Formatting.Percent(group.Metrics.Ctr)</td>
+                                <td class="text-end">@Formatting.Percent(group.Rest.Ctr)</td>
+                                <td class="text-end">@Formatting.Percent(group.Metrics.HookRate)</td>
+                                <td class="text-end">@Formatting.Number(group.Metrics.Cpa, "0.00")</td>
+                                <td class="text-end">@Formatting.Number(group.Metrics.Roas, "0.00")</td>
+                                <td>
+                                    @if (group.Evidence == EvidenceLevel.Insufficient)
+                                    {
+                                        <span class="badge text-bg-secondary">Insuficiente</span>
+                                    }
+                                    else if (group.Evidence == EvidenceLevel.Preliminary)
+                                    {
+                                        <span class="badge text-bg-warning">Preliminar</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge text-bg-info">Moderada</span>
+                                    }
+                                </td>
+                                <td class="small" style="min-width: 18rem;">
+                                    @group.Reading
+                                    @if (User.CanEdit() && LearningRules.FromPattern(group) is not null)
+                                    {
+                                        <form asp-controller="Hypotheses" asp-action="FromPattern" method="post" class="mt-1">
+                                            <input type="hidden" name="Dimension" value="@dimension.Name" />
+                                            <input type="hidden" name="Key" value="@group.Key" />
+                                            <input type="hidden" name="CampaignId" value="@Model.Filter.CampaignId" />
+                                            <input type="hidden" name="From" value="@Model.Filter.From?.ToString("yyyy-MM-dd")" />
+                                            <input type="hidden" name="To" value="@Model.Filter.To?.ToString("yyyy-MM-dd")" />
+                                            <button type="submit" class="btn btn-sm btn-link p-0">Guardar como hipótesis</button>
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="card mb-4" id="analysis-fatigue">
+    <div class="card-body">
+        <h2 class="h6 mb-0">Señales de posible fatiga</h2>
+        <p class="small text-secondary">
+            Anuncios con al menos @PerformanceRules.FatigueMinDays días de datos cuyo CTR cayó un @((PerformanceRules.FatigueMinDrop * 100).ToString("0")) % o más
+            entre la primera y la segunda mitad del período, y la caída difícilmente sea azar. El CTR también cae por estacionalidad o por
+            cambios de presupuesto o de audiencia: es una señal para mirar, no un diagnóstico.
+        </p>
+        @if (Model.Fatigue.Count == 0)
+        {
+            <p class="small text-secondary mb-0">Ningún anuncio muestra esa señal en este período.</p>
+        }
+        else
+        {
+            <ul class="mb-0">
+                @foreach (FatigueItem item in Model.Fatigue)
+                {
+                    <li>
+                        <a asp-action="Ad" asp-route-id="@item.AdId">@item.Name</a> (@item.CampaignName): el CTR pasó de
+                        @Formatting.Percent(item.Signal.FirstCtr) a @Formatting.Percent(item.Signal.LastCtr), una caída del
+                        @((item.Signal.Drop * 100).ToString("0")) % en @item.Signal.Days días.
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+</div>
+
+<p class="small text-secondary">
+    Cómo leer la evidencia. <em>Insuficiente</em>: menos de @PerformanceRules.MinAds anuncios o de @PerformanceRules.MinImpressions impresiones.
+    <em>Moderada</em>: al menos @PerformanceRules.ModerateAds anuncios, de dos o más campañas, y @PerformanceRules.ModerateImpressions impresiones.
+    <em>Preliminar</em>: lo que queda en el medio. La señal estadística compara el CTR del grupo con el del resto y es aproximada:
+    trata cada impresión como independiente, así que exagera algo la certeza. Estos umbrales son un punto de partida y no están
+    calibrados con datos reales.
+</p>

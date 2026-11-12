@@ -1,0 +1,56 @@
+@model LearningIndexViewModel
+@{
+    ViewData["Title"] = "Aprendizajes";
+}
+<h1 class="h3 mb-1">Aprendizajes</h1>
+<p class="text-secondary">
+    La memoria de lo que los datos permitieron afirmar. Sólo los vigentes cuentan para lo que se planifique.
+</p>
+<details class="small text-secondary mb-3">
+    <summary>Cómo se lee esto</summary>
+    Cada aprendizaje sale de un experimento o de un patrón, y dice con qué datos, en qué período y con qué confianza. La confianza la
+    calcula el sistema: una correlación no pasa de media, y sólo un experimento limpio y terminado llega a alta. Ninguna es una
+    predicción de resultados.
+</details>
+
+<ul class="nav nav-pills mb-3" id="learning-filter">
+    <li class="nav-item"><a class="nav-link @(Model.Status is null ? "active" : "")" asp-action="Index">Todos</a></li>
+    @foreach (LearningStatus status in Enum.GetValues<LearningStatus>())
+    {
+        <li class="nav-item">
+            <a class="nav-link @(Model.Status == status ? "active" : "")" asp-action="Index" asp-route-status="@status">@Formatting.LearningStatusName(status)s</a>
+        </li>
+    }
+</ul>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="learnings">
+            <thead><tr><th>Qué se aprendió</th><th>Recomendación</th><th>Sustento</th><th>Período</th><th>Confianza</th><th>Estado</th></tr></thead>
+            <tbody>
+                @foreach (LearningListItem learning in Model.Items)
+                {
+                    <tr class="@(learning.Status == LearningStatus.Active ? "" : "text-secondary")">
+                        <td><a asp-action="Detail" asp-route-id="@learning.Id">@learning.Statement</a></td>
+                        <td class="small">@learning.Recommendation</td>
+                        <td>@(learning.FromExperiment ? "Experimento" : "Patrón")</td>
+                        <td class="small text-nowrap">@Formatting.Period(learning.PeriodStart, learning.PeriodEnd)</td>
+                        <td>
+                            <span class="badge @(learning.Confidence == LearningConfidence.High ? "text-bg-success" : learning.Confidence == LearningConfidence.Medium ? "text-bg-info" : "text-bg-warning")">
+                                @Formatting.Confidence(learning.Confidence)
+                            </span>
+                        </td>
+                        <td>@Formatting.LearningStatusName(learning.Status)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.Items.Count == 0)
+    {
+        <div class="card-body text-secondary">
+            No hay aprendizajes. Se registran desde un <a asp-controller="Experiments" asp-action="Index">experimento</a> con resultado o desde una
+            <a asp-controller="Hypotheses" asp-action="Index">hipótesis</a> surgida de un patrón.
+        </div>
+    }
+</div>

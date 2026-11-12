@@ -1,0 +1,41 @@
+@model List<ExperimentListItem>
+@{
+    ViewData["Title"] = "Experimentos";
+}
+<nav class="small mb-2"><a asp-controller="Meta" asp-action="Index">Rendimiento</a> / Experimentos</nav>
+<div class="d-flex justify-content-between align-items-start mb-1">
+    <h1 class="h3 mb-0">Experimentos</h1>
+    @if (User.CanEdit())
+    {
+        <a class="btn btn-primary" asp-action="Create">Nuevo experimento</a>
+    }
+</div>
+<p class="text-secondary">
+    Un experimento compara anuncios que difieren en una sola cosa, con la hipótesis, la métrica y el período definidos de antemano.
+    Es la forma de pasar de una correlación a algo más firme.
+</p>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead><tr><th>Experimento</th><th>Qué cambia</th><th>Se mide con</th><th>Período</th><th>Brazos</th><th>Estado</th></tr></thead>
+            <tbody>
+                @foreach (ExperimentListItem experiment in Model)
+                {
+                    <tr>
+                        <td><a asp-action="Detail" asp-route-id="@experiment.Id">@experiment.Name</a></td>
+                        <td>@Formatting.Variable(experiment.Variable)</td>
+                        <td>@Formatting.Metric(experiment.Metric)</td>
+                        <td class="text-nowrap">@experiment.StartDate.ToString("yyyy-MM-dd") a @(experiment.EndDate?.ToString("yyyy-MM-dd") ?? "sin fecha de fin")</td>
+                        <td>@experiment.Arms</td>
+                        <td><span class="badge @(experiment.Concluded ? "text-bg-success" : "text-bg-secondary")">@(experiment.Concluded ? "Cerrado" : "Abierto")</span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.Count == 0)
+    {
+        <div class="card-body text-secondary">Todavía no hay experimentos.</div>
+    }
+</div>

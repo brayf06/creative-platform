@@ -1,0 +1,35 @@
+@model List<OrganizationItem>
+@{
+    ViewData["Title"] = "Organizaciones";
+}
+<h1 class="h3 mb-3">Organizaciones</h1>
+<div class="card mb-4">
+    <div class="card-body">
+        <form asp-action="Create" method="post" class="row g-3 align-items-end">
+            <div class="col-md-5">
+                <label for="Name" class="form-label small">Nombre de la organización nueva</label>
+                <input type="text" class="form-control" id="Name" name="Name" maxlength="150" required />
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">Crear</button>
+            </div>
+        </form>
+    </div>
+</div>
+<div class="card">
+    <table class="table mb-0 align-middle">
+        <thead><tr><th>#</th><th>Nombre</th><th>Miembros</th><th>Estado</th><th>Alta (UTC)</th></tr></thead>
+        <tbody>
+            @foreach (OrganizationItem organization in Model)
+            {
+                <tr>
+                    <td>@organization.Id</td>
+                    <td>@organization.Name</td>
+                    <td>@organization.MemberCount</td>
+                    <td><span class="badge @(organization.IsActive ? "text-bg-success" : "text-bg-secondary")">@(organization.IsActive ? "Activa" : "Inactiva")</span></td>
+                    <td>@organization.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

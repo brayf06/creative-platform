@@ -1,0 +1,127 @@
+@model BriefFormViewModel
+@{
+    BriefDetail? brief = Model.Brief;
+    ViewData["Title"] = brief is null ? "Nuevo brief" : $"Editar {brief.Name}";
+}
+<nav class="small mb-2"><a asp-action="Index">Briefs</a> / @(brief is null ? "Nuevo brief" : brief.Name)</nav>
+<h1 class="h3 mb-3">@(brief is null ? "Nuevo brief" : "Editar brief")</h1>
+
+@if (Model.Brands.Count == 0)
+{
+    <div class="alert alert-warning">Primero creá una <a asp-controller="Brands" asp-action="Index">marca</a>: un brief siempre es de una marca.</div>
+}
+
+<form id="brief-form" data-brief-id="@brief?.Id" class="row g-4">
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="h6">Contalo con tus palabras</h2>
+                <textarea class="form-control mb-2" id="OriginalText" name="OriginalText" rows="9" maxlength="4000"
+                          placeholder="Por ejemplo: Quiero generar 20 anuncios de Navidad para reels, de 15 segundos, orientados a mujeres que buscan regalos originales y prácticos. Usá referencias actuales del mercado.">@brief?.OriginalText</textarea>
+                <button type="button" class="btn btn-outline-primary" id="brief-interpret">Completar los campos desde el texto</button>
+                <p class="small mt-2 mb-0" id="brief-understood"></p>
+                <p class="small text-secondary mt-2 mb-0">
+                    Se deduce sólo lo que el texto dice de forma explícita: cantidad, duración, plataforma, ocasión y si pide
+                    investigación. El público, el mensaje y los enfoques los escribís vos; el texto original se guarda entero.
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-body row g-3">
+                <div class="col-md-6">
+                    <label for="BrandId" class="form-label small">Marca</label>
+                    <select class="form-select" id="BrandId" name="BrandId" required>
+                        @foreach (BrandOption brand in Model.Brands)
+                        {
+                            <option value="@brand.Id" selected="@(brief?.BrandId == brand.Id)">@brand.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="ProductId" class="form-label small">Producto</label>
+                    <select class="form-select" id="ProductId" name="ProductId" data-selected="@brief?.ProductId">
+                        <option value="">La marca en general</option>
+                        @foreach (BrandOption brand in Model.Brands)
+                        {
+                            foreach (BrandItemView product in brand.Products)
+                            {
+                                <option value="@product.Id" data-brand="@brand.Id">@product.Text</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-8">
+                    <label for="Name" class="form-label small">Nombre del brief</label>
+                    <input type="text" class="form-control" id="Name" name="Name" maxlength="200" value="@brief?.Name" required />
+                </div>
+                <div class="col-md-4">
+                    <label for="Occasion" class="form-label small">Ocasión</label>
+                    <input type="text" class="form-control" id="Occasion" name="Occasion" maxlength="200" value="@brief?.Occasion" />
+                </div>
+                <div class="col-md-6">
+                    <label for="Audience" class="form-label small">Público</label>
+                    <textarea class="form-control" id="Audience" name="Audience" rows="2" maxlength="500">@brief?.Audience</textarea>
+                </div>
+                <div class="col-md-6">
+                    <label for="Objective" class="form-label small">Objetivo</label>
+                    <textarea class="form-control" id="Objective" name="Objective" rows="2" maxlength="500">@brief?.Objective</textarea>
+                </div>
+                <div class="col-md-6">
+                    <label for="Message" class="form-label small">Mensaje principal</label>
+                    <textarea class="form-control" id="Message" name="Message" rows="2" maxlength="1000">@brief?.Message</textarea>
+                </div>
+                <div class="col-md-6">
+                    <label for="Approaches" class="form-label small">Enfoques a priorizar</label>
+                    <textarea class="form-control" id="Approaches" name="Approaches" rows="2" maxlength="1000">@brief?.Approaches</textarea>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label for="VideoCount" class="form-label small">Cantidad de videos</label>
+                    <input type="number" class="form-control" id="VideoCount" name="VideoCount" min="1" max="50" value="@brief?.VideoCount" />
+                </div>
+                <div class="col-6 col-md-3">
+                    <label for="DurationSeconds" class="form-label small">Duración (s)</label>
+                    <input type="number" class="form-control" id="DurationSeconds" name="DurationSeconds" min="3" max="180" value="@brief?.DurationSeconds" />
+                </div>
+                <div class="col-md-6">
+                    <label for="Platform" class="form-label small">Plataforma de destino</label>
+                    <select class="form-select" id="Platform" name="Platform">
+                        @foreach (BriefPlatform platform in Enum.GetValues<BriefPlatform>())
+                        {
+                            <option value="@platform" selected="@(brief?.Platform == platform)">@Formatting.Platform(platform)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="MaxGenerationBudgetUsd" class="form-label small">Presupuesto máximo de generación (USD)</label>
+                    <input type="number" class="form-control" id="MaxGenerationBudgetUsd" name="MaxGenerationBudgetUsd" min="0" step="0.01"
+                           value="@brief?.MaxGenerationBudgetUsd?.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+                </div>
+                <div class="col-md-6">
+                    <label for="Autonomy" class="form-label small">Nivel de autonomía</label>
+                    <select class="form-select" id="Autonomy" name="Autonomy">
+                        @foreach (AutonomyLevel level in Enum.GetValues<AutonomyLevel>())
+                        {
+                            <option value="@level" selected="@(brief?.Autonomy == level)">@Formatting.Autonomy(level)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-12">
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="UseExternalResearch" name="UseExternalResearch" value="true" checked="@(brief?.UseExternalResearch == true)" />
+                        <label for="UseExternalResearch" class="form-check-label">Usar investigación externa (sólo fuentes autorizadas)</label>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary" disabled="@(Model.Brands.Count == 0)">Guardar brief</button>
+                    <a class="btn btn-link" asp-action="Index">Cancelar</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <script src="~/js/briefs.js" asp-append-version="true"></script>
+}

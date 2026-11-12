@@ -1,0 +1,122 @@
+@model PlanDetail
+@{
+    ViewData["Title"] = $"Plan de conceptos de {Model.BriefName}";
+    int realizable = Model.Concepts.Count(c => c.Realizable);
+    int withRecipe = Model.Concepts.Count(c => c.RecipeId is not null);
+}
+<nav class="small mb-2">
+    <a asp-controller="Briefs" asp-action="Index">Briefs</a> /
+    <a asp-controller="Briefs" asp-action="Detail" asp-route-id="@Model.BriefId">@Model.BriefName</a> / Plan de conceptos #@Model.Id
+</nav>
+<h1 class="h3 mb-1">Plan de conceptos de @Model.BriefName</h1>
+
+<div id="plan-panel" data-plan-id="@Model.Id" data-status="@Model.Status">
+    @if (Model.Status == MediaProcessingStatus.Pending)
+    {
+        <div class="alert alert-secondary">Generando el plan… Esta página se actualiza sola.</div>
+    }
+    else if (Model.Status == MediaProcessingStatus.Failed)
+    {
+        <div class="alert alert-danger">No se pudo generar el plan. @Model.Error</div>
+    }
+    else
+    {
+        <p class="text-secondary">
+            @Model.Concepts.Count concepto(s) de @Model.RequestedCount pedidos · @realizable se pueden armar con material existente ·
+            @withRecipe ya tienen receta · @Model.Model · @Model.PromptVersion · costó USD @Model.CostUsd.ToString("0.0000")
+        </p>
+        <p class="small text-secondary">
+            Cada concepto es una hipótesis a probar, no una predicción de resultados. Los propone un modelo de IA: conviene
+            leerlos antes de producirlos.
+        </p>
+        @if (User.CanEdit() && Model.Concepts.Any(c => c.Realizable && c.RecipeId is null))
+        {
+            <button type="button" class="btn btn-primary mb-3" id="plan-recipes">Armar las recetas de todos los realizables</button>
+        }
+    }
+</div>
+
+<div class="row g-3">
+    @foreach (ConceptView concept in Model.Concepts)
+    {
+        <div class="col-lg-6">
+            <div class="card h-100" data-concept-id="@concept.Id">
+                <div class="card-body">
+                    <div class="d-flex flex-wrap align-items-center gap-1 mb-2">
+                        <span class="badge text-bg-light border">@concept.Position</span>
+                        <h2 class="h6 mb-0 me-2">@concept.Title</h2>
+                        <span class="badge text-bg-secondary" title="De 1 (parecido a lo habitual) a 5 (muy distinto)">Novedad @concept.Novelty/5</span>
+                        @if (concept.Violations.Count > 0)
+                        {
+                            <span class="badge text-bg-danger">Usa un mensaje prohibido</span>
+                        }
+                        else if (concept.Realizable)
+                        {
+                            <span class="badge text-bg-success">Realizable</span>
+                        }
+                        else
+                        {
+                            <span class="badge text-bg-warning">Falta material</span>
+                        }
+                    </div>
+                    <p class="mb-1"><span class="text-secondary">Hipótesis:</span> @concept.Hypothesis</p>
+                    <p class="mb-1"><span class="text-secondary">Enfoque:</span> @concept.Approach · <span class="text-secondary">Público:</span> @concept.Audience</p>
+                    <p class="mb-1"><span class="text-secondary">Hook:</span> @concept.Hook</p>
+                    <p class="mb-1"><span class="text-secondary">Desarrollo:</span> @concept.Development</p>
+                    <p class="mb-1"><span class="text-secondary">CTA:</span> @concept.Cta</p>
+                    <details class="mb-2">
+                        <summary class="small">Guion, motivo y riesgos</summary>
+                        <p class="small mb-1 mt-1" style="white-space: pre-wrap;">@concept.Script</p>
+                        <p class="small mb-1"><span class="text-secondary">Por qué:</span> @concept.Reason</p>
+                        <p class="small mb-1"><span class="text-secondary">Riesgos:</span> @concept.Risks</p>
+                        <p class="small mb-0"><span class="text-secondary">Material requerido:</span> @concept.RequiredMaterial</p>
+                    </details>
+                    @if (concept.Violations.Count > 0)
+                    {
+                        <p class="small text-danger mb-1">Mensajes que la marca prohíbe: @string.Join("; ", concept.Violations)</p>
+                    }
+                    <div class="small fw-semibold">Material existente</div>
+                    <div class="d-flex flex-wrap gap-2 mb-2">
+                        @foreach (ConceptFragmentView fragment in concept.Fragments)
+                        {
+                            <a class="text-decoration-none small" href="/Media/Detail/@fragment.AssetId@(fragment.SegmentId is null ? $"?at={fragment.StartMs}" : $"?segment={fragment.SegmentId}")"
+                               title="@fragment.FileName · @Formatting.Duration(fragment.StartMs) – @Formatting.Duration(fragment.EndMs)">
+                                @if (fragment.SegmentId is not null)
+                                {
+                                    <img class="scene-thumb d-block" loading="lazy" alt="" src="/Scenes/Thumbnail/@fragment.SegmentId" onerror="this.style.visibility='hidden'" />
+                                }
+                                @Formatting.Duration(fragment.EndMs - fragment.StartMs)
+                            </a>
+                        }
+                        @if (concept.Fragments.Count == 0)
+                        {
+                            <span class="small text-secondary">Ninguno de los fragmentos disponibles sirve para este concepto.</span>
+                        }
+                    </div>
+                    @if (concept.Missing.Count > 0)
+                    {
+                        <div class="small fw-semibold">Material que falta</div>
+                        <ul class="small mb-2">
+                            @foreach (string missing in concept.Missing)
+                            {
+                                <li>@missing</li>
+                            }
+                        </ul>
+                    }
+                    @if (concept.RecipeId is not null)
+                    {
+                        <a class="btn btn-sm btn-outline-secondary" asp-controller="Recipes" asp-action="Detail" asp-route-id="@concept.RecipeId">Ver su receta</a>
+                    }
+                    else if (concept.Realizable && User.CanEdit())
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-action="recipe">Armar su receta</button>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/plans.js" asp-append-version="true"></script>
+}

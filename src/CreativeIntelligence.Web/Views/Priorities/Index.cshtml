@@ -1,0 +1,66 @@
+@model PriorityBoard
+@{
+    ViewData["Title"] = "Prioridades";
+}
+<div class="d-flex justify-content-between align-items-start mb-1">
+    <h1 class="h3 mb-0">Prioridades</h1>
+    <a class="btn btn-outline-primary" asp-action="Weights">Ponderaciones (versión @Model.Weights.Version)</a>
+</div>
+<p class="text-secondary">
+    Las <a asp-controller="Hypotheses" asp-action="Index">hipótesis</a> en pie, de la que conviene trabajar primero a la última.
+    <strong>El puntaje es un orden para decidir qué producir primero: no predice el ROAS ni ningún resultado.</strong>
+</p>
+<details class="small text-secondary mb-3">
+    <summary>Cómo se lee esto</summary>
+    El puntaje combina diez factores con las ponderaciones vigentes. Sale de datos del sistema y de lo que una persona valoró en cada
+    hipótesis; no interviene ninguna IA. Un factor sin dato no suma, así que una hipótesis con pocos factores conocidos queda abajo
+    aunque sea buena: conviene completarla antes de descartarla.
+</details>
+
+@if (Model.Items.Count == 0)
+{
+    <div class="card"><div class="card-body text-secondary">No hay hipótesis en pie para priorizar.</div></div>
+}
+
+@foreach (Opportunity item in Model.Items)
+{
+    <div class="card mb-3" data-hypothesis="@item.HypothesisId">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start gap-3">
+                <div>
+                    <a class="fw-semibold" asp-controller="Hypotheses" asp-action="Detail" asp-route-id="@item.HypothesisId">@item.Statement</a>
+                    <div class="small text-secondary">
+                        @(item.Origin == HypothesisOrigin.Pattern ? "Surgió de un patrón" : "Escrita a mano") · @Formatting.HypothesisStateName(item.State) ·
+                        @item.FactorsWithData de @item.Factors.Count factores con dato
+                    </div>
+                </div>
+                <div class="text-end">
+                    <div class="h4 mb-0" data-score>@Formatting.Number(item.Score, "0.0")</div>
+                    <div class="small text-secondary">de 100</div>
+                </div>
+            </div>
+            <details class="mt-2">
+                <summary class="small">Por qué ese puntaje</summary>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0 mt-2">
+                        <thead><tr><th>Factor</th><th class="text-end">Peso</th><th class="text-end">Valor</th><th>De dónde sale</th></tr></thead>
+                        <tbody>
+                            @foreach (FactorValue factor in item.Factors)
+                            {
+                                <tr class="@(factor.Value is null ? "text-secondary" : "")">
+                                    <td>@Formatting.Factor(factor.Factor)</td>
+                                    <td class="text-end">@Model.Weights.Of(factor.Factor)</td>
+                                    <td class="text-end">@Formatting.Number(factor.Value, "0.00")</td>
+                                    <td class="small">@factor.Explanation</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <p class="small text-secondary mb-0 mt-2">
+                    Puntaje = suma de peso × valor, sobre la suma de todos los pesos, por 100. Cada valor va de 0 (resta prioridad) a 1 (suma).
+                </p>
+            </details>
+        </div>
+    </div>
+}

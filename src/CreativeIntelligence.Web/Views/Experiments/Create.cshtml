@@ -1,0 +1,92 @@
+@model ExperimentForm
+@{
+    ViewData["Title"] = "Nuevo experimento";
+}
+<nav class="small mb-2"><a asp-action="Index">Experimentos</a> / Nuevo</nav>
+<h1 class="h3 mb-1">Nuevo experimento</h1>
+<p class="text-secondary">
+    Definí todo antes de mirar resultados. Para que sea controlado: los anuncios en la misma campaña y conjunto, con el mismo
+    presupuesto, y creatividades que difieran sólo en lo que querés probar. El reparto al azar entre personas lo hace la herramienta
+    de pruebas A/B de Meta; esta pantalla lee el resultado y avisa si el diseño tiene problemas.
+</p>
+
+@if (Model.Ads.Count < 2)
+{
+    <div class="alert alert-warning">Hacen falta al menos dos anuncios importados. Importá un informe desde <a asp-controller="Meta" asp-action="Index">Rendimiento</a>.</div>
+}
+
+<form asp-action="Create" method="post" class="card">
+    <div class="card-body row g-3">
+        @if (Model.HypothesisId is not null)
+        {
+            <input type="hidden" name="HypothesisId" value="@Model.HypothesisId" />
+            <div class="col-12 small text-secondary">
+                Pone a prueba una <a asp-controller="Hypotheses" asp-action="Detail" asp-route-id="@Model.HypothesisId">hipótesis de la memoria de aprendizaje</a>.
+            </div>
+        }
+        <div class="col-md-6">
+            <label for="Name" class="form-label small">Nombre</label>
+            <input type="text" class="form-control" id="Name" name="Name" maxlength="200" required />
+        </div>
+        <div class="col-md-3">
+            <label for="Variable" class="form-label small">Qué cambia entre los brazos</label>
+            <select class="form-select" id="Variable" name="Variable">
+                @foreach (ExperimentVariable variable in Enum.GetValues<ExperimentVariable>())
+                {
+                    <option value="@variable" selected="@(variable == Model.Variable)">@Formatting.Variable(variable)</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="Metric" class="form-label small">Se mide con</label>
+            <select class="form-select" id="Metric" name="Metric">
+                @foreach (ExperimentMetric metric in Enum.GetValues<ExperimentMetric>())
+                {
+                    <option value="@metric">@Formatting.Metric(metric)</option>
+                }
+            </select>
+        </div>
+        <div class="col-12">
+            <label for="Hypothesis" class="form-label small">Hipótesis: qué creés que va a pasar y por qué</label>
+            <textarea class="form-control" id="Hypothesis" name="Hypothesis" rows="2" maxlength="1000" required>@Model.Hypothesis</textarea>
+        </div>
+        <div class="col-md-3">
+            <label for="StartDate" class="form-label small">Desde</label>
+            <input type="date" class="form-control" id="StartDate" name="StartDate" required />
+        </div>
+        <div class="col-md-3">
+            <label for="EndDate" class="form-label small">Hasta (opcional)</label>
+            <input type="date" class="form-control" id="EndDate" name="EndDate" />
+        </div>
+        <div class="col-md-3">
+            <label for="MinImpressionsPerArm" class="form-label small">Impresiones mínimas por brazo</label>
+            <input type="number" class="form-control" id="MinImpressionsPerArm" name="MinImpressionsPerArm" min="1000" step="500" value="@ExperimentRules.DefaultMinImpressions" />
+        </div>
+        <div class="col-12">
+            <div class="small fw-semibold">Brazos</div>
+            <div class="small text-secondary mb-2">El primero es el control: los demás se comparan con él. De @ExperimentRules.MinArms a @ExperimentRules.MaxArms, un anuncio cada uno.</div>
+            @for (int i = 0; i < ExperimentRules.MaxArms; i++)
+            {
+                <div class="row g-2 mb-2">
+                    <div class="col-md-4">
+                        <input type="text" class="form-control form-control-sm" name="Arms[@i].Name" maxlength="100"
+                               placeholder="@(i == 0 ? "Control" : $"Variante {i}") (nombre opcional)" aria-label="Nombre del brazo @(i + 1)" />
+                    </div>
+                    <div class="col-md-8">
+                        <select class="form-select form-select-sm" name="Arms[@i].AdId" aria-label="Anuncio del brazo @(i + 1)">
+                            <option value="">@(i < ExperimentRules.MinArms ? "Elegí un anuncio" : "Sin usar")</option>
+                            @foreach (AdOption ad in Model.Ads)
+                            {
+                                <option value="@ad.Id">@ad.Label</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+            }
+        </div>
+        <div class="col-12">
+            <button type="submit" class="btn btn-primary" disabled="@(Model.Ads.Count < 2)">Crear experimento</button>
+            <a class="btn btn-link" asp-action="Index">Cancelar</a>
+        </div>
+    </div>
+</form>

@@ -1,0 +1,155 @@
+@model ResearchOverview
+@{
+    ViewData["Title"] = "Investigación";
+    Dictionary<ReferenceKind, string> kindNames = new()
+    {
+        [ReferenceKind.Ad] = "Anuncio comparable",
+        [ReferenceKind.Trend] = "Tendencia",
+        [ReferenceKind.Concept] = "Concepto comercial",
+        [ReferenceKind.Hook] = "Hook",
+        [ReferenceKind.Structure] = "Estructura narrativa",
+        [ReferenceKind.Style] = "Estilo",
+        [ReferenceKind.Format] = "Formato",
+        [ReferenceKind.Seasonality] = "Estacionalidad",
+    };
+}
+<h1 class="h3 mb-1">Investigación externa</h1>
+<p class="text-secondary">
+    @User.FindFirst(OrgClaims.OrganizationName)?.Value · De cada referencia se guarda su dirección y un resumen en palabras
+    propias. El material ajeno no se descarga, no se reproduce y no entra en ningún video.
+</p>
+
+<div class="card mb-4" id="research-sources">
+    <div class="card-body">
+        <h2 class="h6">Fuentes autorizadas</h2>
+        <p class="small text-secondary">
+            Sólo se guardan referencias de estos sitios. "Sólo referencia" significa que su contenido sirve de inspiración y no
+            se puede reutilizar; "utilizable" exige que la organización tenga permiso para reutilizarlo.
+        </p>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead><tr><th>Fuente</th><th>Dominio</th><th>Sus referencias son</th><th>Condiciones de uso</th><th>Referencias</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (ResearchSourceItem source in Model.Sources)
+                    {
+                        <tr>
+                            <td>@source.Name @if (!source.IsActive) { <span class="badge text-bg-secondary">Desactivada</span> }</td>
+                            <td>@source.Domain</td>
+                            <td>@(source.DefaultUsage == ReferenceUsage.Usable ? "Utilizables" : "Sólo referencia")</td>
+                            <td class="small">@source.ConditionsOfUse</td>
+                            <td>@source.References</td>
+                            <td class="text-end">
+                                @if (User.IsOrgAdmin())
+                                {
+                                    <form asp-action="SourceActive" asp-route-id="@source.Id" method="post">
+                                        <input type="hidden" name="active" value="@(source.IsActive ? "false" : "true")" />
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary">@(source.IsActive ? "Desactivar" : "Activar")</button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (Model.Sources.Count == 0)
+        {
+            <p class="text-secondary small">Todavía no hay fuentes autorizadas: no se puede guardar ninguna referencia ni investigar.</p>
+        }
+        @if (User.IsOrgAdmin())
+        {
+            <form asp-action="AddSource" method="post" class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label for="source-name" class="form-label small">Nombre</label>
+                    <input type="text" class="form-control form-control-sm" id="source-name" name="Name" maxlength="150" required />
+                </div>
+                <div class="col-md-3">
+                    <label for="source-domain" class="form-label small">Dominio</label>
+                    <input type="text" class="form-control form-control-sm" id="source-domain" name="Domain" maxlength="200" placeholder="ejemplo.com" required />
+                </div>
+                <div class="col-md-2">
+                    <label for="source-usage" class="form-label small">Sus referencias son</label>
+                    <select class="form-select form-select-sm" id="source-usage" name="DefaultUsage">
+                        <option value="ReferenceOnly">Sólo referencia</option>
+                        <option value="Usable">Utilizables</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="source-conditions" class="form-label small">Condiciones de uso</label>
+                    <input type="text" class="form-control form-control-sm" id="source-conditions" name="ConditionsOfUse" maxlength="1000" />
+                </div>
+                <div class="col-md-1"><button type="submit" class="btn btn-sm btn-primary w-100">Autorizar</button></div>
+            </form>
+        }
+    </div>
+</div>
+
+<div class="card" id="research-references">
+    <div class="card-body">
+        <h2 class="h6">Referencias</h2>
+        @if (User.CanEdit() && Model.Sources.Any(s => s.IsActive))
+        {
+            <form asp-action="AddReference" method="post" class="row g-2 align-items-end mb-3">
+                <div class="col-md-4">
+                    <label for="reference-url" class="form-label small">Dirección (de una fuente autorizada)</label>
+                    <input type="url" class="form-control form-control-sm" id="reference-url" name="Url" maxlength="450" required />
+                </div>
+                <div class="col-md-3">
+                    <label for="reference-title" class="form-label small">Título</label>
+                    <input type="text" class="form-control form-control-sm" id="reference-title" name="Title" maxlength="300" required />
+                </div>
+                <div class="col-md-2">
+                    <label for="reference-kind" class="form-label small">Qué aporta</label>
+                    <select class="form-select form-select-sm" id="reference-kind" name="Kind">
+                        @foreach (KeyValuePair<ReferenceKind, string> kind in kindNames)
+                        {
+                            <option value="@kind.Key">@kind.Value</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="reference-summary" class="form-label small">Resumen con tus palabras</label>
+                    <input type="text" class="form-control form-control-sm" id="reference-summary" name="Summary" maxlength="2000" />
+                </div>
+                <div class="col-12"><button type="submit" class="btn btn-sm btn-outline-primary">Guardar referencia</button></div>
+            </form>
+        }
+        <div class="list-group list-group-flush">
+            @foreach (ReferenceItem reference in Model.References)
+            {
+                <div class="list-group-item px-0">
+                    <div class="d-flex flex-wrap align-items-center gap-1">
+                        <a class="fw-semibold me-2" href="@reference.Url" target="_blank" rel="noopener noreferrer">@reference.Title</a>
+                        <span class="badge text-bg-light border">@kindNames[reference.Kind]</span>
+                        <span class="badge @(reference.Usage == ReferenceUsage.Usable ? "text-bg-success" : "text-bg-secondary")">@(reference.Usage == ReferenceUsage.Usable ? "Utilizable" : "Sólo referencia")</span>
+                        <span class="badge text-bg-light border">@(reference.Origin == ReferenceOrigin.Researched ? "La encontró el agente" : "Cargada a mano")</span>
+                        <span class="small text-secondary">@reference.SourceName@(reference.BriefName is null ? "" : $" · brief {reference.BriefName}")</span>
+                    </div>
+                    @if (reference.Summary is not null)
+                    {
+                        <div class="small">@reference.Summary</div>
+                    }
+                    @if (User.CanEdit())
+                    {
+                        <div class="d-flex gap-2 mt-1">
+                            @if (reference.SourceAllowsUse)
+                            {
+                                <form asp-action="Usage" asp-route-id="@reference.Id" method="post">
+                                    <input type="hidden" name="Usage" value="@(reference.Usage == ReferenceUsage.Usable ? ReferenceUsage.ReferenceOnly : ReferenceUsage.Usable)" />
+                                    <button type="submit" class="btn btn-sm btn-link p-0">@(reference.Usage == ReferenceUsage.Usable ? "Dejar sólo como referencia" : "Marcar utilizable")</button>
+                                </form>
+                            }
+                            <form asp-action="RemoveReference" asp-route-id="@reference.Id" method="post">
+                                <button type="submit" class="btn btn-sm btn-link p-0 text-danger">Quitar</button>
+                            </form>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+        @if (Model.References.Count == 0)
+        {
+            <p class="text-secondary small mb-0">Todavía no hay referencias.</p>
+        }
+    </div>
+</div>

@@ -1,0 +1,15 @@
+{
+    "version":  "0.0.1",
+    "configurations":  [
+                           {
+                               "name":  "web",
+                               "runtimeExecutable":  "powershell",
+                               "runtimeArgs":  [
+                                                   "-NoProfile",
+                                                   "-Command",
+                                                   "$env:Path += ';' + $env:LOCALAPPDATA + '\\Microsoft\\WinGet\\Links'; dotnet run --project src/CreativeIntelligence.Web --launch-profile http --no-build"
+                                               ],
+                               "port":  5021
+                           }
+                       ]
+}

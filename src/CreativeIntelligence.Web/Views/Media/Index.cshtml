@@ -1,0 +1,151 @@
+@model MediaIndexViewModel
+@{
+    ViewData["Title"] = "Biblioteca";
+    string accept = string.Join(",", MediaRules.Extensions);
+}
+<h1 class="h3 mb-1">Biblioteca multimedia</h1>
+<p class="text-secondary">@User.FindFirst(OrgClaims.OrganizationName)?.Value</p>
+
+@if (User.CanEdit())
+{
+    <div class="card mb-4">
+        <div class="card-body">
+            <h2 class="h6">Cargar archivos</h2>
+            <p class="text-secondary small mb-3">
+                Podés elegir varios a la vez. Los originales se conservan sin modificar y un archivo ya cargado se
+                reconoce por su contenido, aunque tenga otro nombre. Formatos: @string.Join(" ", MediaRules.Extensions).
+            </p>
+            <form id="upload-form" class="row g-3">
+                <div class="col-md-6">
+                    <label for="Files" class="form-label small">Archivos</label>
+                    <input type="file" class="form-control" id="Files" multiple accept="@accept" required />
+                </div>
+                <div class="col-md-3">
+                    <label for="RightsHolder" class="form-label small">Titular de los derechos</label>
+                    <input type="text" class="form-control" id="RightsHolder" name="RightsHolder" maxlength="200" />
+                </div>
+                <div class="col-md-3">
+                    <label for="RightsExpireOn" class="form-label small">Autorización vigente hasta</label>
+                    <input type="date" class="form-control" id="RightsExpireOn" name="RightsExpireOn" />
+                </div>
+                <div class="col-md-9">
+                    <label for="LicenseNotes" class="form-label small">Licencia y restricciones (personas, voces, música)</label>
+                    <input type="text" class="form-control" id="LicenseNotes" name="LicenseNotes" maxlength="1000" />
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="ReuseAuthorized" name="ReuseAuthorized" value="true" />
+                        <label for="ReuseAuthorized" class="form-check-label">Autorizado para reutilizar</label>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary" id="upload-button">Cargar</button>
+                    <a class="btn btn-outline-secondary d-none" id="upload-refresh" asp-action="Index">Actualizar listado</a>
+                </div>
+            </form>
+            <ul id="upload-results" class="list-group list-group-flush mt-3"></ul>
+        </div>
+    </div>
+}
+
+@if (User.CanEdit())
+{
+    <div class="card mb-4" id="batch-panel" data-is-admin="@(User.IsOrgAdmin() ? "true" : "false")">
+        <div class="card-body">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <h2 class="h6 mb-0">Análisis con IA de los videos pendientes</h2>
+                <div class="form-check form-switch mb-0">
+                    <input type="checkbox" class="form-check-input" id="batch-auto" disabled />
+                    <label for="batch-auto" class="form-check-label small">Analizar automáticamente los videos nuevos</label>
+                </div>
+            </div>
+            <p class="small text-secondary mb-2 mt-2" id="batch-text">Calculando…</p>
+            <button type="button" class="btn btn-sm btn-primary d-none" id="batch-start">Confirmar y analizar la tanda</button>
+            <span class="small text-success d-none" id="batch-done"></span>
+        </div>
+    </div>
+}
+
+<form asp-action="Index" method="get" class="row g-2 align-items-end mb-3">
+    <div class="col-md-4">
+        <label for="Search" class="form-label small">Nombre</label>
+        <input type="search" class="form-control" id="Search" name="Search" value="@Model.Filter.Search" maxlength="100" />
+    </div>
+    <div class="col-md-2">
+        <label for="Kind" class="form-label small">Tipo</label>
+        <select class="form-select" id="Kind" name="Kind">
+            <option value="">Todos</option>
+            <option value="Video" selected="@(Model.Filter.Kind == MediaAssetKind.Video)">Videos</option>
+            <option value="Image" selected="@(Model.Filter.Kind == MediaAssetKind.Image)">Imágenes</option>
+        </select>
+    </div>
+    <div class="col-md-3">
+        <label for="FilterAuthorized" class="form-label small">Reutilización</label>
+        <select class="form-select" id="FilterAuthorized" name="ReuseAuthorized">
+            <option value="">Todos</option>
+            <option value="true" selected="@(Model.Filter.ReuseAuthorized == true)">Autorizados</option>
+            <option value="false" selected="@(Model.Filter.ReuseAuthorized == false)">Sin autorización</option>
+        </select>
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-outline-primary">Filtrar</button>
+    </div>
+</form>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead><tr><th></th><th>Archivo</th><th>Tipo</th><th>Duración</th><th>Resolución</th><th>Tamaño</th><th>Reutilización</th><th>Titular</th><th>Cargado (UTC)</th></tr></thead>
+            <tbody>
+                @foreach (MediaAssetItem asset in Model.Page.Items)
+                {
+                    <tr data-status="@asset.ProcessingStatus">
+                        <td class="media-thumb-cell">
+                            @if (asset.HasThumbnail)
+                            {
+                                <a asp-action="Detail" asp-route-id="@asset.Id"><img class="media-thumb" loading="lazy" alt="" src="/Media/Thumbnail/@asset.Id" /></a>
+                            }
+                            else if (asset.ProcessingStatus == MediaProcessingStatus.Failed)
+                            {
+                                <span class="badge text-bg-danger">Ilegible</span>
+                            }
+                            else
+                            {
+                                <span class="badge text-bg-secondary">Analizando…</span>
+                            }
+                        </td>
+                        <td>
+                            <a asp-action="Detail" asp-route-id="@asset.Id">@asset.FileName</a>
+                            @if (asset.DuplicateOfAssetId is not null)
+                            {
+                                <a class="badge text-bg-warning text-decoration-none" asp-action="Detail" asp-route-id="@asset.DuplicateOfAssetId">Duplicado visual de #@asset.DuplicateOfAssetId</a>
+                            }
+                        </td>
+                        <td>@(asset.Kind == MediaAssetKind.Video ? "Video" : "Imagen")</td>
+                        <td class="text-nowrap">@Formatting.Duration(asset.DurationMs)</td>
+                        <td class="text-nowrap">@(asset.Width is null ? "" : $"{asset.Width}×{asset.Height}")</td>
+                        <td class="text-nowrap">@Formatting.Bytes(asset.SizeBytes)</td>
+                        <td>
+                            <span class="badge @(asset.ReuseAuthorized ? "text-bg-success" : "text-bg-secondary")">@(asset.ReuseAuthorized ? "Autorizado" : "Sin autorización")</span>
+                            @if (asset.RightsExpireOn is not null)
+                            {
+                                <span class="small text-secondary">hasta @asset.RightsExpireOn.Value.ToString("yyyy-MM-dd")</span>
+                            }
+                        </td>
+                        <td>@asset.RightsHolder</td>
+                        <td class="text-nowrap">@asset.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.Page.Items.Count == 0)
+    {
+        <div class="card-body text-secondary">No hay archivos que coincidan.</div>
+    }
+</div>
+<partial name="_Pager" model="new PagerViewModel(Model.Page.Page, Model.Page.TotalPages, Model.Page.Total, Model.Route)" />
+
+@section Scripts {
+    <script src="~/js/media.js" asp-append-version="true"></script>
+}

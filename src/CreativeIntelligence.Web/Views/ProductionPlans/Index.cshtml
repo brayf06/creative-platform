@@ -1,0 +1,57 @@
+@model List<ProductionPlanListItem>
+@{
+    ViewData["Title"] = "Plan de producción";
+}
+<h1 class="h3 mb-1">Plan de producción</h1>
+<p class="text-secondary">
+    Un plan toma las <a asp-controller="Hypotheses" asp-action="Index">hipótesis</a> de mayor <a asp-controller="Priorities" asp-action="Index">prioridad</a>
+    de hoy y dice, para cada una, qué se propone hacer y por qué. Producir en cantidad sólo se propone cuando hay un
+    <a asp-controller="Learnings" asp-action="Index">aprendizaje vigente</a> de confianza media o alta; con menos, lo que se propone es probar.
+    No interviene ninguna IA y no promete resultados.
+</p>
+<details class="small text-secondary mb-3">
+    <summary>Cómo se lee esto</summary>
+    Un plan es una foto: guarda el puntaje y la explicación del día en que se armó; si cambian los datos, se arma otro. Es distinto del
+    plan de conceptos, que se genera con IA desde un <a asp-controller="Briefs" asp-action="Index">brief</a> y propone ideas de anuncios;
+    éste dice cuáles de las hipótesis ya conocidas conviene trabajar primero.
+</details>
+
+@if (User.CanEdit())
+{
+    <form asp-action="Create" method="post" class="card mb-4" id="plan-form">
+        <div class="card-body row g-2 align-items-end">
+            <div class="col-md-6">
+                <label for="Name" class="form-label small">Nombre del plan</label>
+                <input type="text" class="form-control" id="Name" name="Name" maxlength="200" required />
+            </div>
+            <div class="col-md-3">
+                <label for="Count" class="form-label small">Cuántas hipótesis, de las de mayor prioridad</label>
+                <input type="number" class="form-control" id="Count" name="Count" min="1" max="20" step="1" value="5" required />
+            </div>
+            <div class="col-auto"><button type="submit" class="btn btn-primary">Armar el plan</button></div>
+        </div>
+    </form>
+}
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="plans">
+            <thead><tr><th>Plan</th><th>Hipótesis</th><th>Ponderaciones</th><th>Armado (UTC)</th></tr></thead>
+            <tbody>
+                @foreach (ProductionPlanListItem plan in Model)
+                {
+                    <tr>
+                        <td><a asp-action="Detail" asp-route-id="@plan.Id">@plan.Name</a></td>
+                        <td>@plan.Items</td>
+                        <td>Versión @plan.WeightsVersion</td>
+                        <td class="text-nowrap">@plan.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.Count == 0)
+    {
+        <div class="card-body text-secondary">Todavía no hay planes.</div>
+    }
+</div>

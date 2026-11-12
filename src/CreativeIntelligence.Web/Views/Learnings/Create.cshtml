@@ -1,0 +1,47 @@
+@model LearningDraft
+@{
+    ViewData["Title"] = "Registrar un aprendizaje";
+}
+<nav class="small mb-2"><a asp-action="Index">Aprendizajes</a> / Registrar</nav>
+<h1 class="h3 mb-1">Registrar un aprendizaje</h1>
+<p class="text-secondary">
+    Sale @(Model.ExperimentId is not null ? "del experimento" : "del patrón de") «@Model.SourceName». Lo de arriba lo calcula el sistema y queda
+    guardado como está hoy; lo de abajo lo escribís vos.
+</p>
+
+<div class="card mb-4" id="learning-basis">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Datos usados</dt><dd class="col-sm-9">@Model.DataUsed</dd>
+            <dt class="col-sm-3">Período</dt><dd class="col-sm-9">@Formatting.Period(Model.PeriodStart, Model.PeriodEnd)</dd>
+            <dt class="col-sm-3">Resultado</dt><dd class="col-sm-9">@Model.Result</dd>
+            <dt class="col-sm-3">Confianza</dt><dd class="col-sm-9 mb-0">@Model.ConfidenceReason</dd>
+        </dl>
+    </div>
+</div>
+
+<form asp-action="Create" method="post" class="card">
+    <div class="card-body row g-3">
+        <input type="hidden" name="ExperimentId" value="@Model.ExperimentId" />
+        @if (Model.ExperimentId is null)
+        {
+            <input type="hidden" name="HypothesisId" value="@Model.HypothesisId" />
+        }
+        <div class="col-12">
+            <label for="Statement" class="form-label small">Qué se aprendió. Escribilo tan firme como lo permita la confianza de arriba.</label>
+            <textarea class="form-control" id="Statement" name="Statement" rows="2" maxlength="1000" required>@Model.SuggestedStatement</textarea>
+        </div>
+        <div class="col-md-6">
+            <label for="Recommendation" class="form-label small">Recomendación: qué conviene hacer en la próxima producción</label>
+            <textarea class="form-control" id="Recommendation" name="Recommendation" rows="3" maxlength="1000" required></textarea>
+        </div>
+        <div class="col-md-6">
+            <label for="Applicability" class="form-label small">Aplicabilidad: para qué producto, audiencia o momento vale, y para cuáles no</label>
+            <textarea class="form-control" id="Applicability" name="Applicability" rows="3" maxlength="1000" required></textarea>
+        </div>
+        <div class="col-12">
+            <button type="submit" class="btn btn-primary">Registrar</button>
+            <a class="btn btn-link" asp-action="Index">Cancelar</a>
+        </div>
+    </div>
+</form>

@@ -1,0 +1,118 @@
+@model RecipeDetail
+@{
+    ViewData["Title"] = Model.Name;
+    Dictionary<CreativeFunction, string> functionNames = new()
+    {
+        [CreativeFunction.Hook] = "Hook",
+        [CreativeFunction.Problem] = "Problema",
+        [CreativeFunction.Presentation] = "Presentación",
+        [CreativeFunction.Demonstration] = "Demostración",
+        [CreativeFunction.Benefit] = "Beneficio",
+        [CreativeFunction.SocialProof] = "Prueba social",
+        [CreativeFunction.Objection] = "Objeción",
+        [CreativeFunction.Comparison] = "Comparación",
+        [CreativeFunction.Offer] = "Oferta",
+        [CreativeFunction.Cta] = "CTA",
+        [CreativeFunction.Broll] = "B-roll",
+        [CreativeFunction.Closing] = "Cierre",
+    };
+}
+<nav class="small mb-2"><a asp-action="Index">Recetas</a> / @Model.Name</nav>
+<div class="d-flex justify-content-between align-items-start">
+    <h1 class="h3 mb-1">@Model.Name</h1>
+    @if (User.CanEdit())
+    {
+        <a class="btn btn-outline-secondary" asp-action="Create" asp-route-from="@Model.Id">Duplicar y cambiar</a>
+    }
+</div>
+<p class="text-secondary">
+    @Model.Width×@Model.Height · @Model.Items.Count fragmento(s) · @Formatting.Duration(Model.DurationMs) · creada el
+    @Model.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC. Una receta no se modifica: así cada video conserva el montaje
+    del que salió.
+</p>
+@if (Model.Concept is not null)
+{
+    <p class="mb-1"><span class="text-secondary">Concepto:</span> @Model.Concept</p>
+}
+@if (Model.Hypothesis is not null)
+{
+    <p class="mb-1"><span class="text-secondary">Hipótesis:</span> @Model.Hypothesis</p>
+}
+<p id="recipe-finishing">
+    <span class="text-secondary">Terminación:</span>
+    @(Model.Transition == RecipeTransition.FadeBlack ? "fundido a negro entre tramos" : "cortes directos") ·
+    @(Model.Subtitles ? "con subtítulos" : "sin subtítulos") ·
+    @(Model.MusicName is null ? "sin música" : $"música \"{Model.MusicName}\" al {Model.MusicVolumePercent} %")
+    @foreach (OverlayView overlay in Model.Overlays)
+    {
+        <span class="badge text-bg-light border">
+            “@overlay.Text” · @(overlay.Placement == OverlayPlacement.Top ? "arriba" : overlay.Placement == OverlayPlacement.Center ? "centro" : "abajo") ·
+            @(overlay.Moment == OverlayMoment.Whole ? "todo el video" : overlay.Moment == OverlayMoment.Opening ? "apertura" : "cierre")
+        </span>
+    }
+</p>
+
+<div class="row g-4">
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="h6">Montaje: de dónde sale cada tramo</h2>
+                <div class="list-group list-group-flush">
+                    @foreach (RecipeItemView item in Model.Items)
+                    {
+                        <div class="list-group-item d-flex align-items-center gap-3">
+                            <span class="badge text-bg-light">@item.Position</span>
+                            @if (item.SegmentId is not null)
+                            {
+                                <img class="scene-thumb" loading="lazy" alt="" src="/Scenes/Thumbnail/@item.SegmentId" onerror="this.style.visibility='hidden'" />
+                            }
+                            <span class="flex-grow-1" style="min-width: 0;">
+                                <a class="d-block text-truncate" href="/Media/Detail/@item.AssetId@(item.SegmentId is null ? $"?at={item.StartMs}" : $"?segment={item.SegmentId}")">@item.FileName</a>
+                                <span class="small text-secondary">
+                                    @Formatting.Duration(item.StartMs) – @Formatting.Duration(item.EndMs) · @Formatting.Duration(item.EndMs - item.StartMs)
+                                </span>
+                                <span class="d-block">
+                                    @if (item.Role is not null)
+                                    {
+                                        <span class="badge text-bg-primary">@functionNames[item.Role.Value]</span>
+                                    }
+                                    @if (!item.ReuseAuthorized)
+                                    {
+                                        <span class="badge text-bg-danger">Sin autorización vigente</span>
+                                    }
+                                    @if (item.SegmentId is null)
+                                    {
+                                        <span class="badge text-bg-secondary" title="Las escenas del video se editaron o se volvieron a detectar; la receta conserva el tramo original.">El fragmento ya no existe</span>
+                                    }
+                                </span>
+                            </span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card" id="variants-panel" data-recipe-id="@Model.Id" data-can-edit="@(User.CanEdit() ? "true" : "false")">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h2 class="h6 mb-0">Videos generados</h2>
+                    @if (User.CanEdit())
+                    {
+                        <button type="button" class="btn btn-sm btn-primary" id="variant-render">Renderizar</button>
+                    }
+                </div>
+                <p class="small text-secondary">
+                    Renderizar otra vez la misma receta produce el mismo montaje. El control de calidad es técnico
+                    (duración, resolución y audio): no dice nada del rendimiento publicitario.
+                </p>
+                <div id="variants-list" class="row g-3"></div>
+                <p class="small text-secondary d-none" id="variants-empty">Todavía no se generó ningún video.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/recipes.js" asp-append-version="true"></script>
+}

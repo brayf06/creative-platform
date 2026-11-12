@@ -1,0 +1,72 @@
+@model List<GeneratedVideoItem>
+@{
+    ViewData["Title"] = "Videos generados";
+}
+<div class="d-flex justify-content-between align-items-start mb-1">
+    <h1 class="h3 mb-0">Videos generados</h1>
+    <div>
+        <a class="btn btn-outline-secondary" asp-action="Index">Recetas</a>
+        <a class="btn btn-outline-secondary" asp-controller="Batches" asp-action="Index">Lotes</a>
+    </div>
+</div>
+<p class="text-secondary">
+    Todos los videos que generó la plataforma, del más nuevo al más viejo, con la receta de la que salió cada uno y si ya se publicó en
+    algún anuncio.
+</p>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="videos">
+            <thead><tr><th>Video</th><th>Receta</th><th>Lote</th><th>Formato</th><th>Duración</th><th>Estado</th><th>Publicado</th><th>Generado</th></tr></thead>
+            <tbody>
+                @foreach (GeneratedVideoItem video in Model)
+                {
+                    <tr>
+                        <td>
+                            @if (video.Status == MediaProcessingStatus.Ready)
+                            {
+                                <a href="/Recipes/Video/@video.VariantId" target="_blank" rel="noopener">Ver #@video.VariantId</a>
+                            }
+                            else
+                            {
+                                <span>#@video.VariantId</span>
+                            }
+                        </td>
+                        <td><a asp-action="Detail" asp-route-id="@video.RecipeId">@video.RecipeName</a></td>
+                        <td>
+                            @if (video.BatchId is not null)
+                            {
+                                <a asp-controller="Batches" asp-action="Detail" asp-route-id="@video.BatchId">@video.BatchName</a>
+                            }
+                        </td>
+                        <td class="text-nowrap">@(video.Width is null ? "" : $"{video.Width}×{video.Height}")</td>
+                        <td class="text-nowrap">@Formatting.Duration(video.DurationMs)</td>
+                        <td>
+                            @if (video.Status == MediaProcessingStatus.Ready)
+                            {
+                                <span class="badge text-bg-success">Listo</span>
+                            }
+                            else if (video.Status == MediaProcessingStatus.Failed)
+                            {
+                                <span class="badge text-bg-danger" title="@video.Error">Falló</span>
+                            }
+                            else
+                            {
+                                <span class="badge text-bg-secondary">Generándose</span>
+                            }
+                        </td>
+                        <td>@(video.Ads == 0 ? "No" : $"En {video.Ads} anuncio(s)")</td>
+                        <td class="text-nowrap small">@video.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.Count == 0)
+    {
+        <div class="card-body text-secondary">
+            Todavía no se generó ningún video. Se generan desde una <a asp-action="Index">receta</a> o desde un
+            <a asp-controller="Batches" asp-action="Index">lote</a>.
+        </div>
+    }
+</div>

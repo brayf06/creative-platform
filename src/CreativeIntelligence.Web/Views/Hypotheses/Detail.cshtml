@@ -1,0 +1,144 @@
+@model HypothesisDetail
+@{
+    ViewData["Title"] = "Hipótesis";
+}
+<nav class="small mb-2"><a asp-action="Index">Hipótesis</a> / Detalle</nav>
+<h1 class="h4 mb-1" id="hypothesis-statement">@Model.Statement</h1>
+<p class="text-secondary">
+    @(Model.Origin == HypothesisOrigin.Pattern ? "Surgió de un patrón" : "Escrita a mano") · Trata sobre: @Formatting.Variable(Model.Variable) ·
+    <span class="badge text-bg-secondary" id="hypothesis-state">@Formatting.HypothesisStateName(Model.State)</span>
+</p>
+@if (Model.State == HypothesisState.Discarded)
+{
+    <div class="alert alert-secondary">Descartada. Motivo: @Model.DiscardReason</div>
+}
+
+@if (Model.Pattern is not null)
+{
+    HypothesisPattern pattern = Model.Pattern;
+    <div class="card mb-4" id="hypothesis-pattern">
+        <div class="card-body">
+            <h2 class="h6">Patrón del que surgió</h2>
+            <p class="small text-secondary mb-2">
+                Componente: @pattern.Label · Análisis de @(pattern.CampaignName is null ? "todas las campañas" : "la campaña " + pattern.CampaignName) ·
+                Período: @Formatting.Period(pattern.From, pattern.To)
+            </p>
+            <p class="mb-1"><span class="text-secondary">Cuando se guardó:</span> @pattern.ReadingThen</p>
+            <p class="mb-2">
+                <span class="text-secondary">Con los datos de hoy:</span>
+                @(pattern.ReadingNow ?? "el componente ya no aparece en el análisis (los anuncios se desvincularon o ya no tienen datos).")
+            </p>
+            <p class="small text-secondary mb-0">
+                Un patrón es una correlación: sirve para elegir qué probar, no para afirmar una causa. Para eso está el experimento.
+            </p>
+            @if (User.CanEdit() && Model.CanLearnFromPattern && Model.State != HypothesisState.Discarded)
+            {
+                <a class="btn btn-sm btn-outline-secondary mt-2" asp-controller="Learnings" asp-action="Create" asp-route-hypothesisId="@Model.Id">
+                    Registrar un aprendizaje sin experimento (confianza limitada)
+                </a>
+            }
+        </div>
+    </div>
+}
+
+<div class="card mb-4" id="hypothesis-experiments">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+            <h2 class="h6">Experimentos que la prueban</h2>
+            @if (User.CanEdit() && Model.State != HypothesisState.Discarded)
+            {
+                <a class="btn btn-sm btn-primary" asp-controller="Experiments" asp-action="Create" asp-route-hypothesisId="@Model.Id">Probar con un experimento</a>
+            }
+        </div>
+        @if (Model.Experiments.Count == 0)
+        {
+            <p class="small text-secondary mb-0">Todavía no se probó.</p>
+        }
+        else
+        {
+            <ul class="mb-0">
+                @foreach (ExperimentListItem experiment in Model.Experiments)
+                {
+                    <li>
+                        <a asp-controller="Experiments" asp-action="Detail" asp-route-id="@experiment.Id">@experiment.Name</a>
+                        <span class="text-secondary small">(@(experiment.Concluded ? "cerrado" : "abierto"), @Formatting.Metric(experiment.Metric))</span>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+</div>
+
+<div class="card mb-4" id="hypothesis-learnings">
+    <div class="card-body">
+        <h2 class="h6">Aprendizajes que dejó</h2>
+        @if (Model.Learnings.Count == 0)
+        {
+            <p class="small text-secondary mb-0">Ninguno todavía.</p>
+        }
+        else
+        {
+            <ul class="mb-0">
+                @foreach (LearningListItem learning in Model.Learnings)
+                {
+                    <li>
+                        <a asp-controller="Learnings" asp-action="Detail" asp-route-id="@learning.Id">@learning.Statement</a>
+                        <span class="text-secondary small">(@Formatting.LearningStatusName(learning.Status), confianza @Formatting.Confidence(learning.Confidence).ToLowerInvariant())</span>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+</div>
+
+@if (Model.State != HypothesisState.Discarded)
+{
+    (string Name, string Label, AssessmentLevel? Value)[] assessments =
+    [
+        ("AudienceRelevance", "Relevancia para el público", Model.Assessment.AudienceRelevance),
+        ("ProductionCost", "Costo de producirla", Model.Assessment.ProductionCost),
+        ("AdRisk", "Riesgo publicitario", Model.Assessment.AdRisk),
+        ("PotentialMargin", "Margen potencial", Model.Assessment.PotentialMargin),
+    ];
+    <form asp-action="Assess" asp-route-id="@Model.Id" method="post" class="card mb-4" id="hypothesis-assessment">
+        <div class="card-body">
+            <h2 class="h6">Valoración para priorizar</h2>
+            <p class="small text-secondary">
+                Lo que el sistema no puede medir lo valorás vos. Entra en el puntaje de <a asp-controller="Priorities" asp-action="Index">Prioridades</a>;
+                lo que quede sin valorar no suma.
+            </p>
+            <div class="row g-2 align-items-end">
+                @foreach ((string Name, string Label, AssessmentLevel? Value) item in assessments)
+                {
+                    <div class="col-md">
+                        <label for="@item.Name" class="form-label small">@item.Label</label>
+                        <select class="form-select form-select-sm" id="@item.Name" name="@item.Name" disabled="@(!User.CanEdit())">
+                            <option value="">Sin valorar</option>
+                            @foreach (AssessmentLevel level in Enum.GetValues<AssessmentLevel>())
+                            {
+                                <option value="@level" selected="@(item.Value == level)">@Formatting.Level(level)</option>
+                            }
+                        </select>
+                    </div>
+                }
+                @if (User.CanEdit())
+                {
+                    <div class="col-auto"><button type="submit" class="btn btn-sm btn-outline-primary">Guardar</button></div>
+                }
+            </div>
+        </div>
+    </form>
+}
+
+@if (User.CanEdit() && Model.State != HypothesisState.Discarded)
+{
+    <form asp-action="Discard" asp-route-id="@Model.Id" method="post" class="card">
+        <div class="card-body row g-2 align-items-end">
+            <div class="col">
+                <label for="Reason" class="form-label small">Descartarla: deja de proponerse para probar. No toca sus experimentos ni sus aprendizajes.</label>
+                <input type="text" class="form-control form-control-sm" id="Reason" name="Reason" maxlength="500" placeholder="Motivo" required />
+            </div>
+            <div class="col-auto"><button type="submit" class="btn btn-sm btn-outline-danger">Descartar</button></div>
+        </div>
+    </form>
+}

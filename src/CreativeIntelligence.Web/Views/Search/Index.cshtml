@@ -1,0 +1,186 @@
+@model SearchViewModel
+@{
+    ViewData["Title"] = "Buscador";
+    Dictionary<CreativeFunction, string> functionNames = new()
+    {
+        [CreativeFunction.Hook] = "Hook",
+        [CreativeFunction.Problem] = "Problema",
+        [CreativeFunction.Presentation] = "Presentación",
+        [CreativeFunction.Demonstration] = "Demostración",
+        [CreativeFunction.Benefit] = "Beneficio",
+        [CreativeFunction.SocialProof] = "Prueba social",
+        [CreativeFunction.Objection] = "Objeción",
+        [CreativeFunction.Comparison] = "Comparación",
+        [CreativeFunction.Offer] = "Oferta",
+        [CreativeFunction.Cta] = "CTA",
+        [CreativeFunction.Broll] = "B-roll",
+        [CreativeFunction.Closing] = "Cierre",
+    };
+    Dictionary<AudioQuality, string> audioNames = new()
+    {
+        [AudioQuality.Good] = "Audio correcto",
+        [AudioQuality.Low] = "Audio bajo",
+        [AudioQuality.Clipped] = "Audio saturado",
+        [AudioQuality.Silent] = "Sin sonido",
+    };
+}
+<h1 class="h3 mb-1">Buscador inteligente</h1>
+<p class="text-secondary">@User.FindFirst(OrgClaims.OrganizationName)?.Value</p>
+
+<form asp-action="Index" method="get" class="card mb-4">
+    <div class="card-body row g-3 align-items-end">
+        <div class="col-lg-6">
+            <label for="Query" class="form-label small">¿Qué buscás?</label>
+            <input type="search" class="form-control" id="Query" name="Query" maxlength="300" value="@Model.Filter.Query"
+                   placeholder="Por ejemplo: hooks de menos de 4 segundos que muestren uñas terminadas" />
+        </div>
+        <div class="col-6 col-lg-2">
+            <label for="Function" class="form-label small">Función</label>
+            <select class="form-select" id="Function" name="Function">
+                <option value="">Cualquiera</option>
+                @foreach (KeyValuePair<CreativeFunction, string> function in functionNames)
+                {
+                    <option value="@function.Key" selected="@(Model.Filter.Function == function.Key)">@function.Value</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-lg-2">
+            <label for="MaxDurationSeconds" class="form-label small">Duración máxima (s)</label>
+            <input type="number" class="form-control" id="MaxDurationSeconds" name="MaxDurationSeconds" min="0.1" max="600" step="0.1"
+                   value="@Model.Filter.MaxDurationSeconds?.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+        </div>
+        <div class="col-lg-2">
+            <button type="submit" class="btn btn-primary w-100">Buscar</button>
+        </div>
+        <div class="col-6 col-lg-3">
+            <label for="Kind" class="form-label small">Tipo de fragmento</label>
+            <select class="form-select" id="Kind" name="Kind">
+                <option value="">Escenas y tramos narrativos</option>
+                <option value="Visual" selected="@(Model.Filter.Kind == MediaSegmentKind.Visual)">Sólo escenas</option>
+                <option value="Narrative" selected="@(Model.Filter.Kind == MediaSegmentKind.Narrative)">Sólo tramos narrativos</option>
+            </select>
+        </div>
+        <div class="col-6 col-lg-3">
+            <label for="Audio" class="form-label small">Calidad de audio</label>
+            <select class="form-select" id="Audio" name="Audio">
+                <option value="">Cualquiera</option>
+                @foreach (KeyValuePair<AudioQuality, string> audio in audioNames)
+                {
+                    <option value="@audio.Key" selected="@(Model.Filter.Audio == audio.Key)">@audio.Value</option>
+                }
+            </select>
+        </div>
+        <div class="col-lg-6 d-flex gap-4 align-items-end">
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="OnlyAuthorized" name="OnlyAuthorized" value="true" checked="@Model.Filter.OnlyAuthorized" />
+                <label for="OnlyAuthorized" class="form-check-label">Sólo con autorización de reutilización</label>
+            </div>
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="OnlySelected" name="OnlySelected" value="true" checked="@Model.Filter.OnlySelected" />
+                <label for="OnlySelected" class="form-check-label">Sólo elegidos para producción</label>
+            </div>
+        </div>
+    </div>
+</form>
+
+@if (Model.Result.Interpreted.Count > 0)
+{
+    <p class="small mb-1" id="search-interpreted">
+        Entendí de tu consulta:
+        @foreach (string item in Model.Result.Interpreted)
+        {
+            <span class="badge text-bg-light border">@item</span>
+        }
+        <span class="text-secondary">Si no es lo que querías, elegí los filtros a mano.</span>
+    </p>
+}
+<p class="small text-secondary" id="search-summary">
+    @switch (Model.Result.Mode)
+    {
+        case SearchMode.Semantic:
+            <span>Búsqueda por significado sobre @Model.Result.Candidates fragmento(s) indexados que pasan los filtros. La similitud indica cercanía con la consulta, no rendimiento publicitario.</span>
+            break;
+        case SearchMode.Keyword:
+            <span>Búsqueda por palabras: @Model.Result.Candidates fragmento(s) contienen todas las palabras. La búsqueda por significado necesita la clave del proveedor de IA.</span>
+            break;
+        default:
+            <span>@Model.Result.Candidates fragmento(s) pasan los filtros; se muestran los más recientes.</span>
+            break;
+    }
+</p>
+
+<div class="row g-3" id="search-results">
+    @foreach (SearchHit hit in Model.Result.Hits)
+    {
+        // Un tramo narrativo no es una escena de la franja: se abre el video posicionado en su inicio.
+        string link = hit.Kind == MediaSegmentKind.Narrative
+            ? $"/Media/Detail/{hit.AssetId}?at={hit.StartMs}"
+            : $"/Media/Detail/{hit.AssetId}?segment={hit.SegmentId}";
+        <div class="col-md-6 col-xl-4">
+            <div class="card h-100">
+                <div class="card-body d-flex gap-3">
+                    <a href="@link" class="flex-shrink-0">
+                        @if (hit.HasThumbnail)
+                        {
+                            <img class="search-thumb" loading="lazy" alt="" src="/Scenes/Thumbnail/@hit.SegmentId" />
+                        }
+                        else
+                        {
+                            <span class="search-thumb d-inline-block"></span>
+                        }
+                    </a>
+                    <div class="flex-grow-1" style="min-width: 0;">
+                        <a class="fw-semibold d-block text-truncate" href="@link">@hit.FileName</a>
+                        <div class="small text-secondary">
+                            @Formatting.Duration(hit.StartMs) – @Formatting.Duration(hit.EndMs) · @Formatting.Duration(hit.EndMs - hit.StartMs)
+                            @if (hit.Score is not null)
+                            {
+                                <span>· similitud @((hit.Score.Value * 100).ToString("0"))%</span>
+                            }
+                        </div>
+                        <div class="mt-1">
+                            @foreach (CreativeFunction function in hit.Functions)
+                            {
+                                <span class="badge text-bg-primary">@functionNames[function]</span>
+                            }
+                            @if (hit.Kind == MediaSegmentKind.Narrative)
+                            {
+                                <span class="badge text-bg-dark">Tramo narrativo</span>
+                            }
+                            @if (hit.AudioQuality is not null && hit.AudioQuality != AudioQuality.Good)
+                            {
+                                <span class="badge text-bg-warning">@audioNames[hit.AudioQuality.Value]</span>
+                            }
+                            @if (hit.SelectedForProduction)
+                            {
+                                <span class="badge text-bg-success">Para producción</span>
+                            }
+                            @if (!hit.ReuseAuthorized)
+                            {
+                                <span class="badge text-bg-secondary">Sin autorización</span>
+                            }
+                        </div>
+                        @if (hit.VisualDescription.Length > 0)
+                        {
+                            <div class="small mt-1">@hit.VisualDescription</div>
+                        }
+                        @if (hit.Transcript.Length > 0)
+                        {
+                            <div class="small fst-italic mt-1">“@hit.Transcript”</div>
+                        }
+                        <div class="mt-1">
+                            @foreach (string tag in hit.Tags)
+                            {
+                                <span class="badge text-bg-info">@tag</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+@if (Model.Result.Hits.Count == 0)
+{
+    <div class="card"><div class="card-body text-secondary">No hay fragmentos que coincidan.</div></div>
+}

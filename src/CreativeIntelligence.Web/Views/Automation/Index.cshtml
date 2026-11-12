@@ -1,0 +1,390 @@
+@model AutomationOverview
+@{
+    ViewData["Title"] = "Automatización";
+    AutomationPolicyView policy = Model.Policy;
+    bool limits = policy.MaxBudgetPerAction > 0 && policy.MaxDailyBudget > 0 && policy.MaxActionsPerDay > 0;
+    Dictionary<AutomationMode, string> modes = new()
+    {
+        [AutomationMode.Manual] = "Manual: toda acción la decide una persona",
+        [AutomationMode.SemiAutomatic] = "Semiautomático: publicar necesita aprobación",
+        [AutomationMode.Automatic] = "Automático controlado: ejecuta sola lo que entra en los límites y tiene respaldo",
+    };
+    Dictionary<AutomationActionStatus, string> statuses = new()
+    {
+        [AutomationActionStatus.PendingApproval] = "Espera aprobación",
+        [AutomationActionStatus.Approved] = "Aprobada, en cola",
+        [AutomationActionStatus.Executed] = "Ejecutada en Meta",
+        [AutomationActionStatus.Simulated] = "Simulada",
+        [AutomationActionStatus.Rejected] = "Rechazada",
+        [AutomationActionStatus.Blocked] = "Bloqueada",
+        [AutomationActionStatus.Cancelled] = "Cancelada",
+        [AutomationActionStatus.Failed] = "Falló",
+    };
+}
+<h1 class="h3 mb-1">Automatización</h1>
+<p class="text-secondary">
+    Desde acá se le pide a la plataforma que publique un video generado como anuncio. Hoy todo es simulación: nada se escribe en Meta.
+</p>
+<details class="small text-secondary mb-3">
+    <summary>Cómo funciona</summary>
+    Toda acción pasa por las guardas (kill switch, límites, derechos del video, duplicados y respaldo en datos) al pedirla, al aprobarla
+    y otra vez al ejecutarla. Si alguna no se cumple, la acción queda bloqueada con su motivo. Publicar siempre lo aprueba un
+    administrador, salvo en modo automático y con respaldo de un aprendizaje de confianza media o alta.
+</details>
+
+<div class="alert @(policy.RealExecutionEnabled ? "alert-danger" : "alert-info")" id="automation-mode">
+    @if (policy.RealExecutionEnabled)
+    {
+        <strong>Ejecución real habilitada.</strong> <span>Las acciones nuevas escriben en la cuenta publicitaria de Meta.</span>
+    }
+    else
+    {
+        <strong>Modo simulación.</strong>
+        <span>Ninguna acción escribe en Meta: se registra lo que se habría hecho.</span>
+        @if (!Model.MetaConnected)
+        {
+            <span>No hay conexión con Meta, así que la ejecución real no se puede habilitar.</span>
+        }
+    }
+    @if (User.IsOrgAdmin() && (policy.RealExecutionEnabled || Model.MetaConnected))
+    {
+        <form asp-action="RealExecution" method="post" class="d-inline ms-2">
+            <input type="hidden" name="enabled" value="@(policy.RealExecutionEnabled ? "false" : "true")" />
+            <button type="submit" class="btn btn-sm @(policy.RealExecutionEnabled ? "btn-outline-secondary" : "btn-outline-danger")">
+                @(policy.RealExecutionEnabled ? "Volver a simulación" : "Habilitar la ejecución real")
+            </button>
+        </form>
+    }
+</div>
+
+@{
+    int open = Model.Anomalies.Count(a => !a.Reviewed);
+    Dictionary<AnomalyKind, string> kinds = new()
+    {
+        [AnomalyKind.SpendSpike] = "Salto de gasto",
+        [AnomalyKind.CtrDrop] = "Caída del CTR",
+        [AnomalyKind.SpendWithoutImpressions] = "Gasto sin impresiones",
+    };
+}
+@if (policy.KillSwitchActive)
+{
+    <div class="alert alert-danger" id="kill-switch-banner">
+        <strong>El kill switch está activo.</strong> No se acepta ni se ejecuta ninguna acción. Se desactiva en la pestaña "Política y límites".
+    </div>
+}
+
+<ul class="nav nav-tabs mb-3" id="automation-tabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="tab-actions" data-bs-toggle="tab" data-bs-target="#pane-actions" type="button" role="tab" aria-controls="pane-actions" aria-selected="true">Acciones</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-policy" data-bs-toggle="tab" data-bs-target="#pane-policy" type="button" role="tab" aria-controls="pane-policy" aria-selected="false">Política y límites</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-anomalies" data-bs-toggle="tab" data-bs-target="#pane-anomalies" type="button" role="tab" aria-controls="pane-anomalies" aria-selected="false">
+            Anomalías @if (open > 0) { <span class="badge text-bg-warning">@open</span> }
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content">
+<div class="tab-pane" id="pane-policy" role="tabpanel" aria-labelledby="tab-policy" tabindex="0">
+<div class="row g-4 mb-4">
+    <div class="col-lg-7">
+        <form asp-action="Policy" method="post" class="card h-100" id="automation-policy">
+            <div class="card-body">
+                <h2 class="h6">Modo y límites</h2>
+                <label for="Mode" class="form-label small">Modo</label>
+                <select class="form-select form-select-sm mb-2" id="Mode" name="Mode" disabled="@(!User.IsOrgAdmin())">
+                    @foreach (AutomationMode mode in Enum.GetValues<AutomationMode>())
+                    {
+                        <option value="@mode" selected="@(policy.Mode == mode)">@modes[mode]</option>
+                    }
+                </select>
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-4">
+                        <label for="MaxBudgetPerAction" class="form-label small">Presupuesto diario máximo por acción</label>
+                        <input type="number" class="form-control form-control-sm" id="MaxBudgetPerAction" name="MaxBudgetPerAction" min="0" step="0.01"
+                               value="@policy.MaxBudgetPerAction.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)" disabled="@(!User.IsOrgAdmin())" />
+                    </div>
+                    <div class="col-md-4">
+                        <label for="MaxDailyBudget" class="form-label small">Presupuesto máximo que se compromete por día</label>
+                        <input type="number" class="form-control form-control-sm" id="MaxDailyBudget" name="MaxDailyBudget" min="0" step="0.01"
+                               value="@policy.MaxDailyBudget.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)" disabled="@(!User.IsOrgAdmin())" />
+                    </div>
+                    <div class="col-md-4">
+                        <label for="MaxActionsPerDay" class="form-label small">Acciones máximas por día</label>
+                        <input type="number" class="form-control form-control-sm" id="MaxActionsPerDay" name="MaxActionsPerDay" min="0" step="1"
+                               value="@policy.MaxActionsPerDay" disabled="@(!User.IsOrgAdmin())" />
+                    </div>
+                    <div class="col-md-4">
+                        <label for="MaxBatchBudget" class="form-label small">Presupuesto máximo de un lote propuesto de una vez</label>
+                        <input type="number" class="form-control form-control-sm" id="MaxBatchBudget" name="MaxBatchBudget" min="0" step="0.01"
+                               value="@policy.MaxBatchBudget.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)" disabled="@(!User.IsOrgAdmin())" />
+                    </div>
+                </div>
+                <p class="small text-secondary mt-2 mb-2" id="automation-usage">
+                    Hoy: @Model.Today.Actions acción(es) en pie, que comprometen @Formatting.Number(Model.Today.Budget, "0.00") por día.
+                    @if (!limits)
+                    {
+                        <strong>Faltan límites: hasta definir los tres, toda acción queda bloqueada.</strong>
+                    }
+                </p>
+                @if (User.IsOrgAdmin())
+                {
+                    <button type="submit" class="btn btn-sm btn-outline-primary">Guardar</button>
+                }
+            </div>
+        </form>
+    </div>
+    <div class="col-lg-5">
+        <div class="card h-100 @(policy.KillSwitchActive ? "border-danger" : "")" id="automation-kill-switch">
+            <div class="card-body">
+                <h2 class="h6">Kill switch</h2>
+                <p class="small @(policy.KillSwitchActive ? "text-danger fw-semibold" : "text-secondary")">
+                    @(policy.KillSwitchActive
+                        ? "ACTIVO: no se acepta ni se ejecuta ninguna acción."
+                        : "Apagado. Al activarlo se cancelan las acciones que esperan aprobación o están en cola, y no se acepta ninguna nueva.")
+                </p>
+                @if (User.IsOrgAdmin())
+                {
+                    <form asp-action="KillSwitch" method="post" class="row g-2 align-items-end">
+                        <input type="hidden" name="activate" value="@(policy.KillSwitchActive ? "false" : "true")" />
+                        <div class="col">
+                            <label for="KillReason" class="form-label small">Motivo</label>
+                            <input type="text" class="form-control form-control-sm" id="KillReason" name="Reason" maxlength="500" required />
+                        </div>
+                        <div class="col-auto">
+                            <button type="submit" class="btn btn-sm @(policy.KillSwitchActive ? "btn-outline-secondary" : "btn-danger")">
+                                @(policy.KillSwitchActive ? "Desactivar" : "Activar el kill switch")
+                            </button>
+                        </div>
+                    </form>
+                }
+                @if (Model.KillSwitch.Count > 0)
+                {
+                    <ul class="small text-secondary mt-3 mb-0" id="kill-switch-history">
+                        @foreach (KillSwitchItem item in Model.KillSwitch)
+                        {
+                            <li>
+                                @item.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC · @(item.Activated ? $"Activado ({item.CancelledActions} acciones canceladas)" : "Desactivado"): @item.Reason
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<div class="tab-pane" id="pane-anomalies" role="tabpanel" aria-labelledby="tab-anomalies" tabindex="0">
+<div class="card mb-4 @(open > 0 ? "border-warning" : "")" id="automation-anomalies">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+            <h2 class="h6">Anomalías en las métricas</h2>
+            @if (User.CanEdit())
+            {
+                <form asp-action="Scan" method="post"><button type="submit" class="btn btn-sm btn-outline-secondary">Buscar ahora</button></form>
+            }
+        </div>
+        <p class="small text-secondary">
+            Se buscan al terminar cada importación: un gasto que salta, un CTR que se cae o gasto sin impresiones en el último día de un anuncio.
+            Son observaciones para revisar, no diagnósticos. @(open > 0
+                ? $"Hay {open} sin revisar: mientras tanto, el modo automático no ejecuta nada solo."
+                : "No hay ninguna sin revisar.")
+        </p>
+        @if (Model.Anomalies.Count > 0)
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead><tr><th>Día</th><th>Anuncio</th><th>Qué</th><th>Lo observado</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (AnomalyItem anomaly in Model.Anomalies)
+                        {
+                            <tr class="@(anomaly.Reviewed ? "text-secondary" : "")" data-anomaly="@anomaly.Id">
+                                <td class="text-nowrap">@anomaly.Date.ToString("yyyy-MM-dd")</td>
+                                <td><a asp-controller="Meta" asp-action="Ad" asp-route-id="@anomaly.AdId">@anomaly.AdName</a></td>
+                                <td class="text-nowrap">@kinds[anomaly.Kind]</td>
+                                <td class="small">
+                                    @anomaly.Description
+                                    @if (anomaly.Reviewed)
+                                    {
+                                        <span class="d-block">Revisada: @anomaly.ReviewNote</span>
+                                    }
+                                </td>
+                                <td style="min-width: 16rem;">
+                                    @if (!anomaly.Reviewed && User.IsOrgAdmin())
+                                    {
+                                        <form asp-action="ReviewAnomaly" asp-route-id="@anomaly.Id" method="post" class="d-flex gap-1">
+                                            <input type="text" class="form-control form-control-sm" name="Reason" maxlength="500" placeholder="Qué concluiste" aria-label="Qué concluiste" required />
+                                            <button type="submit" class="btn btn-sm btn-outline-primary text-nowrap">Dar por revisada</button>
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+</div>
+
+<div class="tab-pane active" id="pane-actions" role="tabpanel" aria-labelledby="tab-actions" tabindex="0">
+@if (User.CanEdit())
+{
+    <form asp-action="Propose" method="post" class="card mb-4" id="automation-propose">
+        <div class="card-body">
+            <h2 class="h6">Proponer las publicaciones de un plan @(policy.RealExecutionEnabled ? "" : "(simuladas)")</h2>
+            <p class="small text-secondary">
+                Para cada hipótesis que el plan dice aplicar y que trata de un fragmento, el sistema busca el video listo más nuevo, sin
+                publicar, que lo use en ese lugar, y pide publicarlo. Cada una pasa por las mismas guardas, y el lote entero se rechaza si
+                supera el presupuesto por lote.
+            </p>
+            <div class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label for="PlanId" class="form-label small">Plan de producción</label>
+                    <select class="form-select form-select-sm" id="PlanId" name="PlanId" required>
+                        <option value="">Elegí un plan</option>
+                        @foreach (PlanOption plan in Model.Plans)
+                        {
+                            <option value="@plan.Id">@plan.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="ProposeAdSetId" class="form-label small">Conjunto de anuncios</label>
+                    <select class="form-select form-select-sm" id="ProposeAdSetId" name="AdSetId" required>
+                        <option value="">Elegí un conjunto</option>
+                        @foreach (AdSetOption adSet in Model.AdSets)
+                        {
+                            <option value="@adSet.Id">@adSet.Label</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="ProposeBudget" class="form-label small">Presupuesto diario de cada una</label>
+                    <input type="number" class="form-control form-control-sm" id="ProposeBudget" name="DailyBudget" min="0.01" step="0.01" required />
+                </div>
+                <div class="col-auto"><button type="submit" class="btn btn-sm btn-primary" disabled="@(Model.Plans.Count == 0 || Model.AdSets.Count == 0)">Proponer</button></div>
+            </div>
+        </div>
+    </form>
+
+    <form asp-action="Request" method="post" class="card mb-4" id="automation-request">
+        <div class="card-body">
+            <h2 class="h6">Pedir una publicación @(policy.RealExecutionEnabled ? "" : "(simulada)")</h2>
+            @if (Model.Variants.Count == 0 || Model.AdSets.Count == 0)
+            {
+                <p class="small text-secondary">
+                    Hace falta al menos un video generado listo y un conjunto de anuncios conocido (llegan al importar un informe desde
+                    <a asp-controller="Meta" asp-action="Index">Rendimiento</a>).
+                </p>
+            }
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label for="VariantId" class="form-label small">Video generado</label>
+                    <select class="form-select form-select-sm" id="VariantId" name="VariantId" required>
+                        <option value="">Elegí un video</option>
+                        @foreach (VariantOption variant in Model.Variants)
+                        {
+                            <option value="@variant.VariantId">#@variant.VariantId · @variant.RecipeName</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="AdSetId" class="form-label small">Conjunto de anuncios</label>
+                    <select class="form-select form-select-sm" id="AdSetId" name="AdSetId" required>
+                        <option value="">Elegí un conjunto</option>
+                        @foreach (AdSetOption adSet in Model.AdSets)
+                        {
+                            <option value="@adSet.Id">@adSet.Label</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="AdName" class="form-label small">Nombre del anuncio</label>
+                    <input type="text" class="form-control form-control-sm" id="AdName" name="AdName" maxlength="300" required />
+                </div>
+                <div class="col-md-2">
+                    <label for="DailyBudget" class="form-label small">Presupuesto diario</label>
+                    <input type="number" class="form-control form-control-sm" id="DailyBudget" name="DailyBudget" min="0.01" step="0.01" required />
+                </div>
+                <div class="col-md-2">
+                    <label for="HypothesisId" class="form-label small">Hipótesis que la respalda</label>
+                    <select class="form-select form-select-sm" id="HypothesisId" name="HypothesisId">
+                        <option value="">Ninguna</option>
+                        @foreach (HypothesisOption hypothesis in Model.Hypotheses)
+                        {
+                            <option value="@hypothesis.Id">@hypothesis.Statement</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-sm btn-primary mt-3" disabled="@(Model.Variants.Count == 0 || Model.AdSets.Count == 0)">Pedir</button>
+        </div>
+    </form>
+}
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0" id="automation-actions">
+            <thead><tr><th>Pedida (UTC)</th><th>Anuncio</th><th>Video</th><th>Conjunto</th><th class="text-end">Presupuesto</th><th>Estado</th><th>Qué pasó</th><th></th></tr></thead>
+            <tbody>
+                @foreach (AutomationActionItem action in Model.Actions)
+                {
+                    <tr data-action="@action.Id">
+                        <td class="text-nowrap small">@action.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>
+                            @action.AdName @if (action.IsSimulation) { <span class="badge text-bg-light border">Simulación</span> }
+                            @if (action.PlanId is not null)
+                            {
+                                <a class="d-block small" asp-controller="ProductionPlans" asp-action="Detail" asp-route-id="@action.PlanId">Propuesta por el sistema desde un plan</a>
+                            }
+                        </td>
+                        <td class="small">#@action.VariantId · @action.RecipeName</td>
+                        <td class="small">@action.AdSetName</td>
+                        <td class="text-end">@Formatting.Number(action.DailyBudget, "0.00")</td>
+                        <td>
+                            <span class="badge @(action.Status is AutomationActionStatus.Executed or AutomationActionStatus.Simulated ? "text-bg-success"
+                                : action.Status is AutomationActionStatus.PendingApproval or AutomationActionStatus.Approved ? "text-bg-warning"
+                                : action.Status == AutomationActionStatus.Rejected ? "text-bg-secondary" : "text-bg-danger")" data-status="@action.Status">
+                                @statuses[action.Status]
+                            </span>
+                        </td>
+                        <td class="small" style="min-width: 16rem;">
+                            @(action.Result ?? action.ApprovalReason)
+                            @if (action.DecisionNote is not null)
+                            {
+                                <span class="d-block text-secondary">Nota: @action.DecisionNote</span>
+                            }
+                        </td>
+                        <td class="text-nowrap">
+                            @if (action.Status == AutomationActionStatus.PendingApproval && User.IsOrgAdmin())
+                            {
+                                <form asp-action="Approve" asp-route-id="@action.Id" method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-success">Aprobar</button>
+                                </form>
+                                <form asp-action="Reject" asp-route-id="@action.Id" method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary">Rechazar</button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.Actions.Count == 0)
+    {
+        <div class="card-body text-secondary">Todavía no se pidió ninguna acción.</div>
+    }
+</div>
+</div>
+</div>
+
+@section Scripts {
+    <script src="~/js/automation.js" asp-append-version="true"></script>
+}

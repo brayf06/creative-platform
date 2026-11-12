@@ -1,0 +1,124 @@
+@model CompositionEditorViewModel
+@{
+    ViewData["Title"] = "Nuevo lote";
+    Dictionary<CreativeFunction, string> functionNames = new()
+    {
+        [CreativeFunction.Hook] = "Hook",
+        [CreativeFunction.Problem] = "Problema",
+        [CreativeFunction.Presentation] = "Presentación",
+        [CreativeFunction.Demonstration] = "Demostración",
+        [CreativeFunction.Benefit] = "Beneficio",
+        [CreativeFunction.SocialProof] = "Prueba social",
+        [CreativeFunction.Objection] = "Objeción",
+        [CreativeFunction.Comparison] = "Comparación",
+        [CreativeFunction.Offer] = "Oferta",
+        [CreativeFunction.Cta] = "CTA",
+        [CreativeFunction.Broll] = "B-roll",
+        [CreativeFunction.Closing] = "Cierre",
+    };
+}
+<nav class="small mb-2"><a asp-action="Index">Lotes</a> / Nuevo lote</nav>
+<h1 class="h3 mb-1">Nuevo lote</h1>
+<p class="text-secondary">
+    Elegí los fragmentos y la función de cada uno. Cada variante lleva un <strong>hook</strong> al principio (si hay
+    alguno), de uno a cuatro fragmentos de desarrollo y un <strong>CTA, cierre u oferta</strong> al final (si hay
+    alguno). Las variantes demasiado parecidas a otra se descartan.
+</p>
+
+<div class="row g-4" id="batch-editor">
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="h6">Fragmentos del lote</h2>
+                @if (Model.Segments.Count == 0)
+                {
+                    <p class="text-secondary mb-0">
+                        No hay fragmentos disponibles. Abrí un video de la <a asp-controller="Media" asp-action="Index">biblioteca</a>
+                        con autorización de reutilización y marcá sus escenas "para producción".
+                    </p>
+                }
+                <div class="list-group list-group-flush" id="batch-pool">
+                    @foreach (AvailableSegment segment in Model.Segments)
+                    {
+                        <label class="list-group-item d-flex align-items-center gap-3" data-segment-id="@segment.SegmentId" data-file="@segment.FileName"
+                               data-start="@segment.StartMs" data-end="@segment.EndMs">
+                            <input type="checkbox" class="form-check-input" checked />
+                            @if (segment.HasThumbnail)
+                            {
+                                <img class="scene-thumb" loading="lazy" alt="" src="/Scenes/Thumbnail/@segment.SegmentId" />
+                            }
+                            else
+                            {
+                                <span class="scene-thumb d-inline-block"></span>
+                            }
+                            <span class="flex-grow-1" style="min-width: 0;">
+                                <span class="d-block text-truncate">@segment.FileName</span>
+                                <span class="small text-secondary">
+                                    @Formatting.Duration(segment.StartMs) – @Formatting.Duration(segment.EndMs) · @Formatting.Duration(segment.EndMs - segment.StartMs)
+                                </span>
+                            </span>
+                            <select class="form-select form-select-sm w-auto" aria-label="Función">
+                                <option value="">Desarrollo (sin función)</option>
+                                @foreach (KeyValuePair<CreativeFunction, string> function in functionNames)
+                                {
+                                    <option value="@function.Key" selected="@(segment.Functions.Count > 0 && segment.Functions[0] == function.Key)">@function.Value</option>
+                                }
+                            </select>
+                        </label>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="h6">Parámetros</h2>
+                <div class="mb-3">
+                    <label for="batch-name" class="form-label small">Nombre</label>
+                    <input type="text" class="form-control" id="batch-name" maxlength="180" />
+                </div>
+                <div class="mb-3">
+                    <label for="batch-brief" class="form-label small">Brief (opcional)</label>
+                    <textarea class="form-control" id="batch-brief" rows="2" maxlength="2000"></textarea>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-12">
+                        <label for="batch-format" class="form-label small">Formato de salida</label>
+                        <select class="form-select" id="batch-format">
+                            @foreach (OutputFormat format in CompositionRules.Formats)
+                            {
+                                <option value="@format.Name">@format.Label</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-4">
+                        <label for="batch-count" class="form-label small">Variantes</label>
+                        <input type="number" class="form-control" id="batch-count" min="@BatchService.MinCount" max="@BatchService.MaxCount" value="10" />
+                    </div>
+                    <div class="col-4">
+                        <label for="batch-duration" class="form-label small">Duración máx. (s)</label>
+                        <input type="number" class="form-control" id="batch-duration" min="2" max="180" value="30" />
+                    </div>
+                    <div class="col-4">
+                        <label for="batch-similarity" class="form-label small">Similitud máx. (%)</label>
+                        <input type="number" class="form-control" id="batch-similarity" min="50" max="95" value="80" />
+                    </div>
+                </div>
+                <partial name="_Finishing" model="Model.Music" />
+                <button type="button" class="btn btn-outline-primary" id="batch-preview">Ver qué variantes saldrían</button>
+                <button type="button" class="btn btn-link d-none" id="batch-shuffle">Probar otra combinación</button>
+                <div class="mt-3 d-none" id="batch-preview-box">
+                    <p class="small mb-2" id="batch-preview-text"></p>
+                    <ol class="small ps-3" id="batch-preview-list"></ol>
+                    <button type="button" class="btn btn-primary" id="batch-create">Generar el lote</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/finishing.js" asp-append-version="true"></script>
+    <script src="~/js/batches.js" asp-append-version="true"></script>
+}

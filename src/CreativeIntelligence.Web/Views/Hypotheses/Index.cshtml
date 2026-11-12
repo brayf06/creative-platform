@@ -1,0 +1,61 @@
+@model List<HypothesisListItem>
+@{
+    ViewData["Title"] = "Hipótesis";
+}
+<h1 class="h3 mb-1">Hipótesis</h1>
+<p class="text-secondary">
+    Una hipótesis es una conjetura sobre qué hace rendir mejor a una creatividad, todavía sin comprobar. Sale de un patrón del
+    <a asp-controller="Meta" asp-action="Analysis">análisis por componente</a> o la escribís vos. Se prueba con un experimento, y lo que
+    dejen los datos se guarda como <a asp-controller="Learnings" asp-action="Index">aprendizaje</a>.
+</p>
+
+@if (User.CanEdit())
+{
+    <form asp-action="Create" method="post" class="card mb-4">
+        <div class="card-body row g-2 align-items-end">
+            <div class="col-md-7">
+                <label for="Statement" class="form-label small">Hipótesis nueva: qué creés que mejora el rendimiento y por qué</label>
+                <input type="text" class="form-control" id="Statement" name="Statement" maxlength="1000" required />
+            </div>
+            <div class="col-md-3">
+                <label for="Variable" class="form-label small">Trata sobre</label>
+                <select class="form-select" id="Variable" name="Variable">
+                    @foreach (ExperimentVariable variable in Enum.GetValues<ExperimentVariable>())
+                    {
+                        <option value="@variable">@Formatting.Variable(variable)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-auto"><button type="submit" class="btn btn-primary">Guardar</button></div>
+        </div>
+    </form>
+}
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="hypotheses">
+            <thead><tr><th>Hipótesis</th><th>Origen</th><th>Trata sobre</th><th>Experimentos</th><th>Aprendizajes vigentes</th><th>Estado</th></tr></thead>
+            <tbody>
+                @foreach (HypothesisListItem hypothesis in Model)
+                {
+                    <tr>
+                        <td><a asp-action="Detail" asp-route-id="@hypothesis.Id">@hypothesis.Statement</a></td>
+                        <td>@(hypothesis.Origin == HypothesisOrigin.Pattern ? "Patrón" : "Manual")</td>
+                        <td>@Formatting.Variable(hypothesis.Variable)</td>
+                        <td>@hypothesis.Experiments</td>
+                        <td>@hypothesis.ActiveLearnings</td>
+                        <td>
+                            <span class="badge @(hypothesis.State == HypothesisState.Learned ? "text-bg-success" : hypothesis.State == HypothesisState.Testing ? "text-bg-info" : "text-bg-secondary")">
+                                @Formatting.HypothesisStateName(hypothesis.State)
+                            </span>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.Count == 0)
+    {
+        <div class="card-body text-secondary">Todavía no hay hipótesis.</div>
+    }
+</div>

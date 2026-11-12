@@ -1,0 +1,166 @@
+@model AdDetail
+@{
+    ViewData["Title"] = Model.Name;
+    AdMetrics totals = Model.Totals;
+    Dictionary<CreativeFunction, string> functionNames = new()
+    {
+        [CreativeFunction.Hook] = "Hook",
+        [CreativeFunction.Problem] = "Problema",
+        [CreativeFunction.Presentation] = "Presentación",
+        [CreativeFunction.Demonstration] = "Demostración",
+        [CreativeFunction.Benefit] = "Beneficio",
+        [CreativeFunction.SocialProof] = "Prueba social",
+        [CreativeFunction.Objection] = "Objeción",
+        [CreativeFunction.Comparison] = "Comparación",
+        [CreativeFunction.Offer] = "Oferta",
+        [CreativeFunction.Cta] = "CTA",
+        [CreativeFunction.Broll] = "B-roll",
+        [CreativeFunction.Closing] = "Cierre",
+    };
+}
+<nav class="small mb-2"><a asp-action="Index">Rendimiento</a> / @Model.Name</nav>
+<h1 class="h3 mb-1">@Model.Name</h1>
+<p class="text-secondary">@Model.AccountName · @Model.CampaignName · @Model.AdSetName · identificador en Meta @Model.ExternalId</p>
+
+<div class="row g-3 mb-4" id="ad-totals">
+    <div class="col-6 col-md-3 col-xl-2"><div class="card"><div class="card-body py-2"><div class="small text-secondary">Gasto</div><div class="fw-semibold">@Model.Currency @Formatting.Number(totals.Spend, "0.00")</div></div></div></div>
+    <div class="col-6 col-md-3 col-xl-2"><div class="card"><div class="card-body py-2"><div class="small text-secondary">Impresiones</div><div class="fw-semibold">@totals.Impressions</div></div></div></div>
+    <div class="col-6 col-md-3 col-xl-2"><div class="card"><div class="card-body py-2"><div class="small text-secondary">CTR</div><div class="fw-semibold">@Formatting.Percent(totals.Ctr)</div></div></div></div>
+    <div class="col-6 col-md-3 col-xl-2"><div class="card"><div class="card-body py-2"><div class="small text-secondary">CPA</div><div class="fw-semibold">@Formatting.Number(totals.Cpa, "0.00")</div></div></div></div>
+    <div class="col-6 col-md-3 col-xl-2"><div class="card"><div class="card-body py-2"><div class="small text-secondary">ROAS</div><div class="fw-semibold">@Formatting.Number(totals.Roas, "0.00")</div></div></div></div>
+    <div class="col-6 col-md-3 col-xl-2"><div class="card"><div class="card-body py-2"><div class="small text-secondary">Se quedan al empezar</div><div class="fw-semibold">@Formatting.Percent(totals.HookRate)</div></div></div></div>
+</div>
+<p class="small text-secondary">
+    @totals.Days día(s) con datos. "Se quedan al empezar" es reproducciones de 3 segundos sobre impresiones. Son observaciones de
+    este anuncio; con pocos días o poco gasto no alcanzan para sacar conclusiones.
+</p>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="h6">Por día</h2>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0" id="ad-days">
+                        <thead>
+                            <tr>
+                                <th>Día</th><th class="text-end">Gasto</th><th class="text-end">Impr.</th><th class="text-end">Clics</th>
+                                <th class="text-end">CTR</th><th class="text-end">CPM</th><th class="text-end">Compras</th><th class="text-end">ROAS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (AdDay day in Model.Days)
+                            {
+                                <tr>
+                                    <td class="text-nowrap">@day.Date.ToString("yyyy-MM-dd")</td>
+                                    <td class="text-end">@Formatting.Number(day.Metrics.Spend, "0.00")</td>
+                                    <td class="text-end">@day.Metrics.Impressions</td>
+                                    <td class="text-end">@day.Metrics.Clicks</td>
+                                    <td class="text-end">@Formatting.Percent(day.Metrics.Ctr)</td>
+                                    <td class="text-end">@Formatting.Number(day.Metrics.Cpm, "0.00")</td>
+                                    <td class="text-end">@Formatting.Number(day.Metrics.Purchases, "0.##")</td>
+                                    <td class="text-end">@Formatting.Number(day.Metrics.Roas, "0.00")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card" id="ad-lineage">
+            <div class="card-body">
+                <h2 class="h6">Creatividad y linaje</h2>
+                @if (Model.Lineage is null)
+                {
+                    <p class="small text-secondary">
+                        Este anuncio no está vinculado a ningún video generado por la plataforma. Vinculalo para ver de qué receta y de qué
+                        fragmentos salió.
+                    </p>
+                }
+                else
+                {
+                    AdLineage lineage = Model.Lineage;
+                    <ol class="list-unstyled small mb-3">
+                        @if (lineage.BrandName is not null)
+                        {
+                            <li><span class="text-secondary">Marca:</span> @lineage.BrandName</li>
+                        }
+                        @if (lineage.BriefId is not null)
+                        {
+                            <li><span class="text-secondary">Brief:</span> <a asp-controller="Briefs" asp-action="Detail" asp-route-id="@lineage.BriefId">@lineage.BriefName</a></li>
+                        }
+                        @if (lineage.ConceptId is not null)
+                        {
+                            <li><span class="text-secondary">Concepto:</span> <a asp-controller="Plans" asp-action="Detail" asp-route-id="@lineage.PlanId">@lineage.ConceptTitle</a></li>
+                        }
+                        @if (lineage.BatchId is not null)
+                        {
+                            <li><span class="text-secondary">Lote:</span> <a asp-controller="Batches" asp-action="Detail" asp-route-id="@lineage.BatchId">@lineage.BatchName</a></li>
+                        }
+                        <li><span class="text-secondary">Receta:</span> <a asp-controller="Recipes" asp-action="Detail" asp-route-id="@lineage.RecipeId">@lineage.RecipeName</a></li>
+                        @if (lineage.Hook is not null)
+                        {
+                            <li><span class="text-secondary">Concepto comercial o gancho:</span> @lineage.Hook</li>
+                        }
+                        @if (lineage.Hypothesis is not null)
+                        {
+                            <li><span class="text-secondary">Hipótesis:</span> @lineage.Hypothesis</li>
+                        }
+                        <li><span class="text-secondary">Video:</span> #@lineage.VariantId (vínculo @(Model.LinkOrigin == AdLinkOrigin.Automatic ? "automático" : "manual"))</li>
+                    </ol>
+                    <video class="w-100 rounded bg-dark mb-3" style="max-height: 18rem;" controls preload="metadata" src="/Recipes/Video/@lineage.VariantId"></video>
+                    <div class="small fw-semibold mb-1">Fragmentos que lo componen</div>
+                    <div class="list-group list-group-flush mb-3">
+                        @foreach (RecipeItemView item in lineage.Items)
+                        {
+                            <div class="list-group-item d-flex align-items-center gap-2 px-0">
+                                <span class="badge text-bg-light border">@item.Position</span>
+                                @if (item.SegmentId is not null)
+                                {
+                                    <img class="scene-thumb" loading="lazy" alt="" src="/Scenes/Thumbnail/@item.SegmentId" onerror="this.style.visibility='hidden'" />
+                                }
+                                <span class="small" style="min-width: 0;">
+                                    <a class="d-block text-truncate" href="/Media/Detail/@item.AssetId?at=@item.StartMs">@item.FileName</a>
+                                    <span class="text-secondary">@Formatting.Duration(item.StartMs) – @Formatting.Duration(item.EndMs)</span>
+                                    @if (item.Role is not null)
+                                    {
+                                        <span class="badge text-bg-primary">@functionNames[item.Role.Value]</span>
+                                    }
+                                </span>
+                            </div>
+                        }
+                    </div>
+                }
+                @if (Model.Experiments.Count > 0)
+                {
+                    <div class="small mb-3" id="ad-experiments">
+                        <span class="fw-semibold">Experimentos:</span>
+                        @foreach (AdExperiment experiment in Model.Experiments)
+                        {
+                            <a asp-controller="Experiments" asp-action="Detail" asp-route-id="@experiment.Id">@experiment.Name</a>
+                            <span class="text-secondary">(brazo @experiment.ArmName)</span>
+                        }
+                    </div>
+                }
+                @if (User.CanEdit())
+                {
+                    <form asp-action="Link" asp-route-id="@Model.Id" method="post" class="row g-2 align-items-end">
+                        <div class="col">
+                            <label for="VariantId" class="form-label small">Video generado que se publicó en este anuncio</label>
+                            <select class="form-select form-select-sm" id="VariantId" name="VariantId">
+                                <option value="">Ninguno</option>
+                                @foreach (VariantOption option in Model.Candidates)
+                                {
+                                    <option value="@option.VariantId" selected="@(Model.Lineage?.VariantId == option.VariantId)">#@option.VariantId · @option.RecipeName · @option.CreatedAt.ToString("yyyy-MM-dd")</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-auto"><button type="submit" class="btn btn-sm btn-outline-primary">Guardar vínculo</button></div>
+                    </form>
+                }
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CreativeIntelligence.Web/CreativeIntelligence.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CreativeIntelligence.Tests/CreativeIntelligence.Tests.csproj" />
+  </Folder>
+</Solution>

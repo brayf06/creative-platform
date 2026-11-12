@@ -1,0 +1,20 @@
+// Todo el proyecto es un solo ensamblado MVC: sus propios espacios de nombres se importan una vez acá.
+global using CreativeIntelligence.Web.Data;
+global using CreativeIntelligence.Web.Filters;
+global using CreativeIntelligence.Web.Hubs;
+global using CreativeIntelligence.Web.Models.Dto;
+global using CreativeIntelligence.Web.Models.Entidades;
+global using CreativeIntelligence.Web.Models.ViewModels;
+global using CreativeIntelligence.Web.Security;
+global using CreativeIntelligence.Web.Services;
+global using CreativeIntelligence.Web.Services.Ai;
+global using CreativeIntelligence.Web.Services.Auditing;
+global using CreativeIntelligence.Web.Services.Automation;
+global using CreativeIntelligence.Web.Services.Common;
+global using CreativeIntelligence.Web.Services.Composition;
+global using CreativeIntelligence.Web.Services.Jobs;
+global using CreativeIntelligence.Web.Services.Learnings;
+global using CreativeIntelligence.Web.Services.Media;
+global using CreativeIntelligence.Web.Services.Meta;
+global using CreativeIntelligence.Web.Services.Organizations;
+global using CreativeIntelligence.Web.Services.Strategy;

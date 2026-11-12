@@ -1,0 +1,95 @@
+@model PriorityWeightsView
+@{
+    ViewData["Title"] = "Ponderaciones";
+    Dictionary<PriorityFactor, string> hints = new()
+    {
+        [PriorityFactor.HistoricalPerformance] = "CTR de los anuncios que ya lo usan frente al resto. Es una correlación.",
+        [PriorityFactor.EvidenceQuality] = "Confianza del mejor aprendizaje vigente; sin aprendizaje, la evidencia del patrón.",
+        [PriorityFactor.Similarity] = "Cuántas recetas ya lo usan: más repetido, menos suma.",
+        [PriorityFactor.Novelty] = "Cuántos anuncios y experimentos ya lo probaron: menos probado, más suma.",
+        [PriorityFactor.AudienceRelevance] = "Lo valora una persona en la hipótesis.",
+        [PriorityFactor.MaterialAvailability] = "Si el material está y tiene derechos vigentes.",
+        [PriorityFactor.ProductionCost] = "Lo valora una persona: más costo, menos suma.",
+        [PriorityFactor.AdRisk] = "Lo valora una persona: más riesgo, menos suma.",
+        [PriorityFactor.Fatigue] = "Anuncios que lo usan con señal de fatiga: más fatiga, menos suma.",
+        [PriorityFactor.PotentialMargin] = "Lo valora una persona en la hipótesis.",
+    };
+}
+<nav class="small mb-2"><a asp-action="Index">Prioridades</a> / Ponderaciones</nav>
+<h1 class="h3 mb-1">Ponderaciones</h1>
+<p class="text-secondary">
+    Cuánto pesa cada factor en el puntaje, de 0 (no cuenta) a 10. Rige la versión @Model.Current.Version@(Model.Current.Version == 0 ? " (las de fábrica)" : "").
+    Guardar crea una versión nueva: las anteriores quedan a la vista, con quién las cambió en la auditoría. Las escalas de cada
+    factor y los pesos de fábrica son un punto de partida, sin calibrar con datos reales.
+</p>
+
+<form asp-action="Weights" method="post" class="card mb-4" id="weights-form">
+    <div class="card-body">
+        <div class="row g-3">
+            @foreach (PriorityFactor factor in PriorityRules.All)
+            {
+                <div class="col-md-6 col-xl-4">
+                    <label for="@factor" class="form-label small mb-0">@Formatting.Factor(factor)</label>
+                    <div class="small text-secondary mb-1">@hints[factor]</div>
+                    <input type="number" class="form-control form-control-sm" id="@factor" name="@factor" min="0" max="10" step="1"
+                           value="@Model.Current.Of(factor)" disabled="@(!User.IsOrgAdmin())" required />
+                </div>
+            }
+        </div>
+        @if (User.IsOrgAdmin())
+        {
+            <div class="row g-2 align-items-end mt-2">
+                <div class="col">
+                    <label for="Note" class="form-label small">Por qué se cambian</label>
+                    <input type="text" class="form-control form-control-sm" id="Note" name="Note" maxlength="500" required />
+                </div>
+                <div class="col-auto"><button type="submit" class="btn btn-sm btn-primary">Guardar como versión nueva</button></div>
+            </div>
+        }
+        else
+        {
+            <p class="small text-secondary mb-0 mt-3">Sólo un administrador de la organización cambia las ponderaciones.</p>
+        }
+    </div>
+</form>
+
+<div class="card">
+    <div class="card-body">
+        <h2 class="h6">Versiones</h2>
+        @if (Model.History.Count == 0)
+        {
+            <p class="small text-secondary mb-0">Todavía no se guardó ninguna: rigen las de fábrica.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0" id="weights-history">
+                    <thead>
+                        <tr>
+                            <th>Versión</th><th>Fecha (UTC)</th>
+                            @foreach (PriorityFactor factor in PriorityRules.All)
+                            {
+                                <th class="text-end small">@Formatting.Factor(factor)</th>
+                            }
+                            <th>Motivo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (WeightSetItem item in Model.History)
+                        {
+                            <tr>
+                                <td>@item.Weights.Version</td>
+                                <td class="text-nowrap">@item.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                                @foreach (PriorityFactor factor in PriorityRules.All)
+                                {
+                                    <td class="text-end">@item.Weights.Of(factor)</td>
+                                }
+                                <td class="small">@item.Note</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

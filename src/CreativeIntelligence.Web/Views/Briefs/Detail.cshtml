@@ -1,0 +1,104 @@
+@model BriefDetail
+@{
+    ViewData["Title"] = Model.Name;
+}
+<nav class="small mb-2"><a asp-action="Index">Briefs</a> / @Model.Name</nav>
+<div class="d-flex justify-content-between align-items-start">
+    <h1 class="h3 mb-1">@Model.Name</h1>
+    @if (User.CanEdit())
+    {
+        <a class="btn btn-outline-secondary" asp-action="Edit" asp-route-id="@Model.Id">Editar</a>
+    }
+</div>
+<p class="text-secondary">
+    Marca <a asp-controller="Brands" asp-action="Detail" asp-route-id="@Model.BrandId">@Model.BrandName</a> ·
+    creado el @Model.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC
+</p>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-body">
+                <dl class="row mb-0" id="brief-fields">
+                    <dt class="col-sm-4">Producto</dt><dd class="col-sm-8">@(Model.ProductName ?? "La marca en general")</dd>
+                    <dt class="col-sm-4">Ocasión</dt><dd class="col-sm-8">@(Model.Occasion ?? "—")</dd>
+                    <dt class="col-sm-4">Público</dt><dd class="col-sm-8">@(Model.Audience ?? "—")</dd>
+                    <dt class="col-sm-4">Objetivo</dt><dd class="col-sm-8">@(Model.Objective ?? "—")</dd>
+                    <dt class="col-sm-4">Mensaje principal</dt><dd class="col-sm-8">@(Model.Message ?? "—")</dd>
+                    <dt class="col-sm-4">Enfoques</dt><dd class="col-sm-8">@(Model.Approaches ?? "—")</dd>
+                    <dt class="col-sm-4">Duración</dt><dd class="col-sm-8">@(Model.DurationSeconds is null ? "—" : $"{Model.DurationSeconds} s")</dd>
+                    <dt class="col-sm-4">Cantidad de videos</dt><dd class="col-sm-8">@(Model.VideoCount?.ToString() ?? "—")</dd>
+                    <dt class="col-sm-4">Plataforma</dt><dd class="col-sm-8">@Formatting.Platform(Model.Platform)</dd>
+                    <dt class="col-sm-4">Investigación externa</dt><dd class="col-sm-8">@(Model.UseExternalResearch ? "Sí, sobre fuentes autorizadas" : "No")</dd>
+                    <dt class="col-sm-4">Presupuesto de generación</dt><dd class="col-sm-8">@(Model.MaxGenerationBudgetUsd is null ? "—" : $"USD {Model.MaxGenerationBudgetUsd:0.00}")</dd>
+                    <dt class="col-sm-4">Autonomía</dt><dd class="col-sm-8">@Formatting.Autonomy(Model.Autonomy)</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="h6">Texto original</h2>
+                <p class="mb-0" style="white-space: pre-wrap;">@(Model.OriginalText ?? "Sin texto libre.")</p>
+            </div>
+        </div>
+        <div class="card mb-4" id="brief-research" data-brief-id="@Model.Id">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h2 class="h6 mb-0">Investigación externa</h2>
+                    @if (User.CanEdit() && Model.UseExternalResearch)
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="research-estimate">Investigar</button>
+                    }
+                </div>
+                <p class="small text-secondary">
+                    @if (Model.UseExternalResearch)
+                    {
+                        <span>Un modelo de IA busca referencias en las <a asp-controller="Research" asp-action="Index">fuentes autorizadas</a> y guarda su dirección y un resumen. El plan las usa como inspiración. Tiene costo.</span>
+                    }
+                    else
+                    {
+                        <span>Este brief no pide investigación externa. Se activa editándolo.</span>
+                    }
+                </p>
+                <div id="research-estimate-box" class="alert alert-warning d-none">
+                    <div id="research-estimate-text" class="mb-2"></div>
+                    <button type="button" class="btn btn-sm btn-primary" id="research-confirm">Confirmar e investigar</button>
+                    <button type="button" class="btn btn-sm btn-link" id="research-cancel">Cancelar</button>
+                </div>
+                <div class="list-group list-group-flush mb-2" id="brief-research-runs"></div>
+                <ul class="ps-3 mb-0" id="brief-research-references"></ul>
+                <p class="small text-secondary mb-0 d-none" id="brief-research-empty">Este brief todavía no tiene referencias.</p>
+            </div>
+        </div>
+        <div class="card" id="brief-plans" data-brief-id="@Model.Id">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h2 class="h6 mb-0">Plan de conceptos</h2>
+                    @if (User.CanEdit())
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="plan-estimate">Generar un plan de conceptos</button>
+                    }
+                </div>
+                <p class="small text-secondary">
+                    Es distinto del <a asp-controller="ProductionPlans" asp-action="Index">plan de producción</a>, que sale de los resultados y no usa IA.
+                    Un modelo de IA propone @(Model.VideoCount ?? StrategyService.DefaultConcepts) conceptos a partir de este brief, del perfil de la
+                    marca y de los fragmentos elegidos para producción. Tiene costo: primero se muestra la estimación.
+                </p>
+                <div id="plan-estimate-box" class="alert alert-warning d-none">
+                    <div id="plan-estimate-text" class="mb-2"></div>
+                    <button type="button" class="btn btn-sm btn-primary" id="plan-confirm">Confirmar y generar</button>
+                    <button type="button" class="btn btn-sm btn-link" id="plan-cancel">Cancelar</button>
+                </div>
+                <div class="list-group" id="brief-plans-list"></div>
+                <p class="small text-secondary mb-0 d-none" id="brief-plans-empty">Todavía no se generó ningún plan de conceptos.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/research.js" asp-append-version="true"></script>
+    <script src="~/js/plans.js" asp-append-version="true"></script>
+}

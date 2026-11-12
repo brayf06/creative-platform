@@ -1,0 +1,118 @@
+@model AiCostSummary
+@{
+    ViewData["Title"] = "Costos de IA";
+    Dictionary<string, string> taskNames = new()
+    {
+        ["media.transcription"] = "Transcripción",
+        ["scene.analysis"] = "Análisis de escenas",
+        ["strategy.plan"] = "Plan de conceptos",
+        ["strategy.research"] = "Investigación externa",
+        ["segment.embedding"] = "Indexado para búsqueda",
+        ["search.query"] = "Consulta de búsqueda",
+    };
+    int[] periods = [7, 30, 90, 365];
+    string budgetClass = Model.BudgetUsed is null ? "" : Model.BudgetUsed >= 1 ? "bg-danger" : Model.BudgetUsed >= 0.8m ? "bg-warning" : "bg-success";
+}
+<div class="d-flex justify-content-between align-items-center mb-1">
+    <h1 class="h3 mb-0">Costos de IA</h1>
+    <div class="btn-group" role="group" aria-label="Período">
+        @foreach (int period in periods)
+        {
+            <a class="btn btn-sm @(Model.Days == period ? "btn-primary" : "btn-outline-primary")" asp-action="Index" asp-route-Days="@period">@period días</a>
+        }
+    </div>
+</div>
+<p class="text-secondary">@User.FindFirst(OrgClaims.OrganizationName)?.Value · últimos @Model.Days días</p>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="text-secondary small">Costo del período</div><div class="fs-3 fw-semibold" id="cost-period">USD @Model.CostUsd.ToString("0.0000")</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="text-secondary small">Llamadas</div><div class="fs-3 fw-semibold" id="cost-calls">@Model.Calls</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="text-secondary small">Tokens (entrada / salida)</div><div class="fs-5 fw-semibold">@Model.InputTokens.ToString("N0") / @Model.OutputTokens.ToString("N0")</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="text-secondary small">Cómputo local (sin costo de API)</div><div class="fs-3 fw-semibold" id="cost-local">@((Model.LocalComputeMs / 1000.0).ToString("0.0")) s</div></div></div></div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h2 class="h6">Mes en curso</h2>
+        @if (Model.BudgetUsed is null)
+        {
+            <p class="mb-0">USD @Model.MonthCostUsd.ToString("0.0000") gastados. No hay un presupuesto mensual configurado (<code>Ai:MonthlyBudgetUsd</code>).</p>
+        }
+        else
+        {
+            <p class="mb-2" id="cost-budget">USD @Model.MonthCostUsd.ToString("0.0000") de USD @Model.MonthlyBudgetUsd.ToString("0.00") (@((Model.BudgetUsed.Value * 100).ToString("0.0")) %)</p>
+            <div class="progress" role="progressbar" aria-valuenow="@((int)(Model.BudgetUsed.Value * 100))" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar @budgetClass" style="width: @(Math.Min(100, (int)(Model.BudgetUsed.Value * 100)))%"></div>
+            </div>
+            @if (Model.BudgetUsed >= 1)
+            {
+                <div class="alert alert-danger small mt-3 mb-0">Se alcanzó el presupuesto mensual. Es un aviso: hoy no bloquea nuevos análisis.</div>
+            }
+            else if (Model.BudgetUsed >= 0.8m)
+            {
+                <div class="alert alert-warning small mt-3 mb-0">Se superó el 80 % del presupuesto mensual.</div>
+            }
+            else if (Model.BudgetUsed >= 0.5m)
+            {
+                <div class="alert alert-secondary small mt-3 mb-0">Se superó el 50 % del presupuesto mensual.</div>
+            }
+        }
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header bg-transparent fw-semibold">Por tarea y modelo</div>
+    <div class="table-responsive">
+        <table class="table mb-0 align-middle" id="cost-groups">
+            <thead><tr><th>Tarea</th><th>Proveedor</th><th>Modelo</th><th class="text-end">Llamadas</th><th class="text-end">Tokens entrada</th><th class="text-end">Tokens salida</th><th class="text-end">Tiempo</th><th class="text-end">Costo (USD)</th></tr></thead>
+            <tbody>
+                @foreach (AiCostGroup group in Model.Groups)
+                {
+                    <tr>
+                        <td>@(taskNames.GetValueOrDefault(group.Task, group.Task))</td>
+                        <td>@(group.Provider == AiUsageService.LocalProvider ? "En el servidor" : group.Provider)</td>
+                        <td><code>@group.Model</code></td>
+                        <td class="text-end">@group.Calls</td>
+                        <td class="text-end">@group.InputTokens.ToString("N0")</td>
+                        <td class="text-end">@group.OutputTokens.ToString("N0")</td>
+                        <td class="text-end">@((group.DurationMs / 1000.0).ToString("0.0")) s</td>
+                        <td class="text-end">@group.CostUsd.ToString("0.0000")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.Groups.Count == 0)
+    {
+        <div class="card-body text-secondary">No hubo uso de IA en el período.</div>
+    }
+</div>
+
+<div class="card">
+    <div class="card-header bg-transparent fw-semibold">Últimas llamadas</div>
+    <div class="table-responsive">
+        <table class="table table-sm mb-0 align-middle">
+            <thead><tr><th>Fecha (UTC)</th><th>Tarea</th><th>Modelo</th><th>Prompt</th><th class="text-end">Entrada</th><th class="text-end">Salida</th><th class="text-end">Tiempo</th><th class="text-end">Costo (USD)</th><th>Trabajo</th></tr></thead>
+            <tbody>
+                @foreach (AiUsageItem item in Model.Recent)
+                {
+                    <tr>
+                        <td class="text-nowrap">@item.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        <td>@(taskNames.GetValueOrDefault(item.Task, item.Task))</td>
+                        <td><code>@item.Model</code></td>
+                        <td>@item.PromptVersion</td>
+                        <td class="text-end">@item.InputTokens.ToString("N0")</td>
+                        <td class="text-end">@item.OutputTokens.ToString("N0")</td>
+                        <td class="text-end">@((item.DurationMs / 1000.0).ToString("0.0")) s</td>
+                        <td class="text-end">@item.CostUsd.ToString("0.000000")</td>
+                        <td>@(item.BackgroundJobId is null ? "—" : $"#{item.BackgroundJobId}")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+<p class="small text-secondary mt-3">
+    Los costos se calculan con las tarifas configuradas al momento de cada llamada. Los tokens de los embeddings son estimados:
+    el proveedor no los informa.
+</p>

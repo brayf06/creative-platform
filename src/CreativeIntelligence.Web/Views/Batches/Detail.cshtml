@@ -1,0 +1,48 @@
+@model BatchDetail
+@{
+    ViewData["Title"] = Model.Name;
+}
+<nav class="small mb-2"><a asp-action="Index">Lotes</a> / @Model.Name</nav>
+<h1 class="h3 mb-1">@Model.Name</h1>
+<p class="text-secondary mb-1">
+    @Model.Variants.Count variante(s) de @Model.RequestedCount pedidas · @Model.Width×@Model.Height · hasta
+    @(Model.MaxDurationMs / 1000) s cada una · similitud máxima @((Model.SimilarityThreshold * 100).ToString("0")) % ·
+    semilla @Model.Seed · creado el @Model.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC
+</p>
+@if (Model.Variants.Count < Model.RequestedCount)
+{
+    <p class="small text-warning-emphasis mb-1">
+        Los fragmentos elegidos no dieron para más variantes distintas (se descartaron @Model.DiscardedBySimilarity
+        candidatos por parecidos).
+    </p>
+}
+@if (Model.Brief is not null)
+{
+    <p><span class="text-secondary">Brief:</span> @Model.Brief</p>
+}
+
+<div class="card mb-4" id="batch-panel" data-batch-id="@Model.Id">
+    <div class="card-body">
+        <div class="progress mb-2" role="progressbar" aria-label="Avance del lote">
+            <div class="progress-bar" id="batch-progress" style="width: 0%"></div>
+        </div>
+        <div class="small" id="batch-summary">Cargando…</div>
+        @if (User.CanEdit())
+        {
+            <div class="my-2">
+                <button type="button" class="btn btn-sm btn-outline-danger d-none" id="batch-cancel">Cancelar lo que falta</button>
+                <button type="button" class="btn btn-sm btn-outline-primary d-none" id="batch-retry">Reintentar los fallidos</button>
+            </div>
+        }
+        <div class="small text-secondary">
+            El control de calidad es técnico (duración, resolución y audio). Que un video lo pase no dice nada de su
+            rendimiento publicitario.
+        </div>
+    </div>
+</div>
+
+<div class="row g-3" id="batch-variants"></div>
+
+@section Scripts {
+    <script src="~/js/batches.js" asp-append-version="true"></script>
+}

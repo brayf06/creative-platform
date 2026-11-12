@@ -1,0 +1,33 @@
+@model OrganizationSwitcherViewModel
+@{
+    MembershipItem? active = Model.Memberships.FirstOrDefault(m => m.OrganizationId == Model.CurrentId);
+}
+@if (Model.Memberships.Count == 0)
+{
+    <span class="badge text-bg-warning">Sin organización</span>
+}
+else if (Model.Memberships.Count == 1)
+{
+    <span class="badge text-bg-secondary">@Model.Memberships[0].Name</span>
+}
+else
+{
+    <div class="dropdown">
+        <button class="btn btn-sm btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            @(active?.Name ?? "Elegir organización")
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+            @foreach (MembershipItem membership in Model.Memberships)
+            {
+                <li>
+                    <form asp-controller="Account" asp-action="SwitchOrganization" method="post">
+                        <input type="hidden" name="organizationId" value="@membership.OrganizationId" />
+                        <button type="submit" class="dropdown-item @(membership.OrganizationId == Model.CurrentId ? "active" : "")">
+                            @membership.Name <span class="small opacity-75">· @membership.Role</span>
+                        </button>
+                    </form>
+                </li>
+            }
+        </ul>
+    </div>
+}

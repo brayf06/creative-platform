@@ -1,0 +1,137 @@
+@model LearningDetail
+@{
+    ViewData["Title"] = "Aprendizaje";
+}
+<nav class="small mb-2"><a asp-action="Index">Aprendizajes</a> / Detalle</nav>
+<h1 class="h4 mb-1" id="learning-statement">@Model.Statement</h1>
+<p class="text-secondary">
+    <span class="badge @(Model.Status == LearningStatus.Active ? "text-bg-success" : "text-bg-secondary")" id="learning-status">@Formatting.LearningStatusName(Model.Status)</span>
+    <span class="badge @(Model.Confidence == LearningConfidence.High ? "text-bg-success" : Model.Confidence == LearningConfidence.Medium ? "text-bg-info" : "text-bg-warning")" id="learning-confidence">
+        Confianza @Formatting.Confidence(Model.Confidence).ToLowerInvariant()
+    </span>
+    · Registrado el @Model.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC · Criterio @Model.CriteriaVersion
+</p>
+
+@if (Model.Status != LearningStatus.Active)
+{
+    <div class="alert alert-secondary" id="learning-closed">
+        @(Model.Status == LearningStatus.Corrected ? "Corregido" : "Invalidado") el @Model.StatusChangedAt?.ToString("yyyy-MM-dd HH:mm") UTC. Motivo: @Model.StatusReason
+        @if (Model.ReplacedById is not null)
+        {
+            <a asp-action="Detail" asp-route-id="@Model.ReplacedById">Ver la versión que lo reemplaza.</a>
+        }
+        Ya no cuenta para lo que se planifique.
+    </div>
+}
+@if (Model.ReplacesId is not null)
+{
+    <p class="small">Corrige a una <a asp-action="Detail" asp-route-id="@Model.ReplacesId">versión anterior</a>.</p>
+}
+
+@if (Model.Review is not null && Model.Review.Changed)
+{
+    <div class="alert alert-warning" id="learning-review">
+        <div class="fw-semibold">Los datos cambiaron desde que se registró</div>
+        @if (Model.Review.Confidence is null)
+        {
+            <span>Hoy los datos ya no alcanzan para sostenerlo. Conviene invalidarlo.</span>
+        }
+        else
+        {
+            <span>Hoy darían confianza @Formatting.Confidence(Model.Review.Confidence.Value).ToLowerInvariant(): @Model.Review.Result Conviene corregirlo o invalidarlo.</span>
+        }
+    </div>
+}
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-body">
+                <dl class="mb-0">
+                    <dt>Recomendación</dt><dd style="white-space: pre-wrap;">@Model.Recommendation</dd>
+                    <dt>Aplicabilidad</dt><dd style="white-space: pre-wrap;">@Model.Applicability</dd>
+                    <dt>Resultado</dt><dd>@Model.Result</dd>
+                    <dt>Por qué esa confianza</dt><dd>@Model.ConfidenceReason</dd>
+                    <dt>Datos usados</dt><dd>@Model.DataUsed</dd>
+                    <dt>Período</dt><dd class="mb-0">@Formatting.Period(Model.PeriodStart, Model.PeriodEnd)</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card h-100" id="learning-evidence">
+            <div class="card-body">
+                <h2 class="h6">De dónde sale</h2>
+                <ul class="list-unstyled small">
+                    @if (Model.HypothesisId is not null)
+                    {
+                        <li><span class="text-secondary">Hipótesis:</span> <a asp-controller="Hypotheses" asp-action="Detail" asp-route-id="@Model.HypothesisId">@Model.HypothesisStatement</a></li>
+                    }
+                    @if (Model.ExperimentId is not null)
+                    {
+                        <li><span class="text-secondary">Experimento:</span> <a asp-controller="Experiments" asp-action="Detail" asp-route-id="@Model.ExperimentId">@Model.ExperimentName</a></li>
+                    }
+                </ul>
+                <div class="small fw-semibold mb-1">Evidencia</div>
+                <ul class="small mb-0">
+                    @foreach (LearningEvidenceView item in Model.Evidence)
+                    {
+                        @if (item.AdId is not null)
+                        {
+                            <li>
+                                Anuncio <a asp-controller="Meta" asp-action="Ad" asp-route-id="@item.AdId">@item.AdName</a>
+                                @if (item.VariantId is not null)
+                                {
+                                    <span class="text-secondary">(video #@item.VariantId)</span>
+                                }
+                            </li>
+                        }
+                        else
+                        {
+                            <li>
+                                Fragmento <a href="/Media/Detail/@item.AssetId?at=@item.StartMs">@item.FileName</a>
+                                <span class="text-secondary">@Formatting.Duration(item.StartMs) – @Formatting.Duration(item.EndMs)</span>
+                            </li>
+                        }
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (User.CanEdit() && Model.Status == LearningStatus.Active)
+{
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <form asp-action="Correct" asp-route-id="@Model.Id" method="post" class="card" id="learning-correct">
+                <div class="card-body">
+                    <h2 class="h6">Corregir</h2>
+                    <p class="small text-secondary">
+                        Crea una versión nueva, calculada con los datos de hoy, y deja ésta como corregida. La anterior no se pierde.
+                    </p>
+                    <label for="Statement" class="form-label small">Qué se aprendió</label>
+                    <textarea class="form-control mb-2" id="Statement" name="Statement" rows="2" maxlength="1000" required>@Model.Statement</textarea>
+                    <label for="Recommendation" class="form-label small">Recomendación</label>
+                    <textarea class="form-control mb-2" id="Recommendation" name="Recommendation" rows="2" maxlength="1000" required>@Model.Recommendation</textarea>
+                    <label for="Applicability" class="form-label small">Aplicabilidad</label>
+                    <textarea class="form-control mb-2" id="Applicability" name="Applicability" rows="2" maxlength="1000" required>@Model.Applicability</textarea>
+                    <label for="CorrectReason" class="form-label small">Por qué se corrige</label>
+                    <input type="text" class="form-control mb-2" id="CorrectReason" name="Reason" maxlength="500" required />
+                    <button type="submit" class="btn btn-outline-primary">Guardar la corrección</button>
+                </div>
+            </form>
+        </div>
+        <div class="col-lg-5">
+            <form asp-action="Invalidate" asp-route-id="@Model.Id" method="post" class="card" id="learning-invalidate">
+                <div class="card-body">
+                    <h2 class="h6">Invalidar</h2>
+                    <p class="small text-secondary">Deja de valer y de contar para lo que se planifique. Queda en la memoria, con el motivo.</p>
+                    <label for="InvalidateReason" class="form-label small">Por qué deja de valer</label>
+                    <input type="text" class="form-control mb-2" id="InvalidateReason" name="Reason" maxlength="500" required />
+                    <button type="submit" class="btn btn-outline-danger">Invalidar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+}

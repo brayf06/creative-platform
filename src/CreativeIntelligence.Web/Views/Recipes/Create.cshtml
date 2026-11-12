@@ -1,0 +1,121 @@
+@model CompositionEditorViewModel
+@{
+    ViewData["Title"] = "Nueva receta";
+}
+<h1 class="h3 mb-1">Nueva receta</h1>
+<p class="text-secondary">
+    Elegí los fragmentos en el orden en que van en el video. Sólo aparecen los elegidos para producción de videos con
+    autorización de reutilización vigente.
+</p>
+
+@if (Model.Draft is not null)
+{
+    <div class="alert alert-info">
+        Estás partiendo de una receta existente. Las recetas no se modifican: al guardar se crea otra.
+        @if (Model.Draft.Dropped > 0)
+        {
+            <span>@Model.Draft.Dropped fragmento(s) de la original no se pudieron traer porque sus escenas se editaron o se volvieron a detectar.</span>
+        }
+    </div>
+    <script type="application/json" id="recipe-draft">@Json.Serialize(Model.Draft)</script>
+}
+
+<div class="row g-4" id="recipe-editor">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="h6">Fragmentos disponibles</h2>
+                @if (Model.Segments.Count == 0)
+                {
+                    <p class="text-secondary mb-0">
+                        No hay fragmentos disponibles. Abrí un video de la <a asp-controller="Media" asp-action="Index">biblioteca</a>
+                        con autorización de reutilización y marcá sus escenas "para producción".
+                    </p>
+                }
+                <div class="list-group list-group-flush" id="available">
+                    @foreach (AvailableSegment segment in Model.Segments)
+                    {
+                        <div class="list-group-item d-flex align-items-center gap-3"
+                             data-segment-id="@segment.SegmentId" data-asset-id="@segment.AssetId" data-file="@segment.FileName"
+                             data-start="@segment.StartMs" data-end="@segment.EndMs"
+                             data-thumb="@(segment.HasThumbnail ? "true" : "false")"
+                             data-role="@(segment.Functions.Count > 0 ? segment.Functions[0].ToString() : "")">
+                            @if (segment.HasThumbnail)
+                            {
+                                <img class="scene-thumb" loading="lazy" alt="" src="/Scenes/Thumbnail/@segment.SegmentId" />
+                            }
+                            else
+                            {
+                                <span class="scene-thumb d-inline-block"></span>
+                            }
+                            <span class="flex-grow-1" style="min-width: 0;">
+                                <a class="d-block text-truncate" href="/Media/Detail/@segment.AssetId?segment=@segment.SegmentId" target="_blank">@segment.FileName</a>
+                                <span class="small text-secondary">
+                                    @Formatting.Duration(segment.StartMs) – @Formatting.Duration(segment.EndMs) · @Formatting.Duration(segment.EndMs - segment.StartMs)
+                                </span>
+                            </span>
+                            <button type="button" class="btn btn-sm btn-outline-primary" data-action="add">Agregar</button>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="card mt-4">
+            <div class="card-body">
+                <h2 class="h6">Vista previa</h2>
+                <p class="small text-secondary">
+                    Reproduce los fragmentos del montaje en orden, con el recorte del formato y los textos. No genera ningún
+                    archivo. Los subtítulos, la música y los fundidos sólo se ven en el video renderizado.
+                </p>
+                <div id="preview-frame" class="preview-frame mx-auto mb-2">
+                    <video id="preview-video" playsinline></video>
+                    <div class="preview-text preview-top" data-place="Top"></div>
+                    <div class="preview-text preview-center" data-place="Center"></div>
+                    <div class="preview-text preview-bottom" data-place="Bottom"></div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="preview-play" disabled>Reproducir vista previa</button>
+                <span class="small text-secondary ms-2" id="preview-status"></span>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="h6">Receta</h2>
+                <div class="mb-3">
+                    <label for="recipe-name" class="form-label small">Nombre</label>
+                    <input type="text" class="form-control" id="recipe-name" maxlength="200" />
+                </div>
+                <div class="mb-3">
+                    <label for="recipe-concept" class="form-label small">Concepto comercial (opcional)</label>
+                    <input type="text" class="form-control" id="recipe-concept" maxlength="1000" />
+                </div>
+                <div class="mb-3">
+                    <label for="recipe-hypothesis" class="form-label small">Hipótesis a probar (opcional)</label>
+                    <input type="text" class="form-control" id="recipe-hypothesis" maxlength="1000" />
+                </div>
+                <div class="mb-3">
+                    <label for="recipe-format" class="form-label small">Formato de salida</label>
+                    <select class="form-select" id="recipe-format">
+                        @foreach (OutputFormat format in CompositionRules.Formats)
+                        {
+                            <option value="@format.Name">@format.Label</option>
+                        }
+                    </select>
+                    <div class="form-text">Cada fragmento se escala hasta cubrir el cuadro y se recorta lo que sobra.</div>
+                </div>
+                <div class="small fw-semibold mb-1">Montaje <span class="text-secondary fw-normal" id="recipe-total"></span></div>
+                <div class="list-group mb-3" id="recipe-items"></div>
+                <p class="small text-secondary" id="recipe-empty">Agregá fragmentos desde la lista de la izquierda.</p>
+                <partial name="_Finishing" model="Model.Music" />
+                <button type="button" class="btn btn-primary" id="recipe-save" disabled>Guardar receta</button>
+                <a class="btn btn-link" asp-action="Index">Cancelar</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/finishing.js" asp-append-version="true"></script>
+    <script src="~/js/recipes.js" asp-append-version="true"></script>
+}

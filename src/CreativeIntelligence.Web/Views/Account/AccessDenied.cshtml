@@ -1,0 +1,17 @@
+@{
+    ViewData["Title"] = "Acceso denegado";
+}
+<div class="card mx-auto" style="max-width: 36rem;">
+    <div class="card-body">
+        <h1 class="h4">Acceso denegado</h1>
+        @if (User.Identity?.IsAuthenticated == true && User.OrganizationId() == 0)
+        {
+            <p>Tu usuario todavía no pertenece a ninguna organización. Pedile a un administrador que te agregue.</p>
+        }
+        else
+        {
+            <p>Tu rol en esta organización no permite ver esa página.</p>
+            <a class="btn btn-primary" asp-controller="Home" asp-action="Index">Volver al inicio</a>
+        }
+    </div>
+</div>

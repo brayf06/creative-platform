@@ -1,0 +1,30 @@
+@model PagedResult<AuditItem>
+@{
+    ViewData["Title"] = "Auditoría";
+}
+<h1 class="h3 mb-1">Auditoría</h1>
+<p class="text-secondary">@User.FindFirst(OrgClaims.OrganizationName)?.Value</p>
+<div class="card">
+    <div class="table-responsive">
+        <table class="table mb-0 align-middle">
+            <thead><tr><th>Fecha (UTC)</th><th>Usuario</th><th>Acción</th><th>Entidad</th><th>Detalle</th></tr></thead>
+            <tbody>
+                @foreach (AuditItem entry in Model.Items)
+                {
+                    <tr>
+                        <td class="text-nowrap">@entry.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        <td>@entry.UserName</td>
+                        <td><code>@entry.Action</code></td>
+                        <td>@entry.EntityType #@entry.EntityId</td>
+                        <td>@entry.Summary</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.Items.Count == 0)
+    {
+        <div class="card-body text-secondary">Todavía no hay registros.</div>
+    }
+</div>
+<partial name="_Pager" model="new PagerViewModel(Model.Page, Model.TotalPages, Model.Total)" />

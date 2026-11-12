@@ -1,0 +1,190 @@
+@model MediaAssetDetail
+@{
+    ViewData["Title"] = Model.FileName;
+}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-action="Index">Biblioteca</a></li>
+        <li class="breadcrumb-item active" aria-current="page">@Model.FileName</li>
+    </ol>
+</nav>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-body text-center bg-dark rounded">
+                @if (Model.Kind == MediaAssetKind.Video)
+                {
+                    <video controls preload="metadata" class="mw-100" style="max-height: 70vh;" src="@Url.Action("Original", "Media")/@Model.Id"></video>
+                }
+                else
+                {
+                    <img class="mw-100" style="max-height: 70vh;" alt="@Model.FileName" src="@Url.Action("Original", "Media")/@Model.Id" />
+                }
+            </div>
+        </div>
+        @if (Model.Kind == MediaAssetKind.Video)
+        {
+            <div class="card mt-4" id="scenes-panel" data-asset-id="@Model.Id" data-can-edit="@(User.CanEdit() ? "true" : "false")">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h2 class="h6 mb-0">Escenas <span id="scenes-status" class="badge text-bg-secondary ms-2">Cargando…</span></h2>
+                        <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="scenes-detect">Detectar de nuevo</button>
+                    </div>
+                    <div class="alert alert-danger small d-none" id="scenes-error"></div>
+                    <div id="scenes-strip" class="scene-strip mb-3"></div>
+                    <div id="scene-editor" class="border rounded p-3 mb-3 d-none">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-semibold" id="scene-editor-title"></span>
+                            <span class="small text-secondary">Posición del video: <span id="scene-editor-position">0:00,0</span></span>
+                        </div>
+                        <div class="row g-2 align-items-end">
+                            <div class="col-auto">
+                                <label for="scene-end" class="form-label small mb-1">Fin de la escena (s)</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="number" class="form-control" id="scene-end" step="0.1" min="0" style="max-width: 7rem;" />
+                                    <button type="button" class="btn btn-outline-secondary" id="scene-end-current" title="Usar la posición actual del video">Posición actual</button>
+                                    <button type="button" class="btn btn-primary" id="scene-move">Mover corte</button>
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="scene-split">Dividir en la posición actual</button>
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="scene-merge">Fusionar con la siguiente</button>
+                            </div>
+                        </div>
+                        <div class="row g-2 align-items-end mt-1">
+                            <div class="col">
+                                <label for="scene-tags" class="form-label small mb-1">Etiquetas (separadas por coma)</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="text" class="form-control" id="scene-tags" maxlength="1200" />
+                                    <button type="button" class="btn btn-primary" id="scene-tags-save">Guardar etiquetas</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-check mt-3">
+                            <input type="checkbox" class="form-check-input" id="scene-selected" />
+                            <label for="scene-selected" class="form-check-label">Seleccionar para producción</label>
+                            <span class="small text-secondary d-none" id="scene-selected-note">· el video no tiene autorización de reutilización vigente</span>
+                        </div>
+                    </div>
+                    <div id="scenes-list" class="list-group list-group-flush"></div>
+                </div>
+            </div>
+            <div class="card mt-4" id="analysis-panel" data-asset-id="@Model.Id" data-can-edit="@(User.CanEdit() ? "true" : "false")">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h2 class="h6 mb-0">Análisis con IA <span id="analysis-status" class="badge text-bg-secondary ms-2">Cargando…</span></h2>
+                        <button type="button" class="btn btn-sm btn-outline-primary d-none" id="analysis-estimate-button">Analizar con IA…</button>
+                    </div>
+                    <div class="alert alert-danger small d-none" id="analysis-error"></div>
+                    <div class="alert alert-secondary small d-none" id="analysis-estimate">
+                        <p class="mb-2" id="analysis-estimate-text"></p>
+                        <button type="button" class="btn btn-sm btn-primary" id="analysis-confirm">Confirmar y analizar</button>
+                        <button type="button" class="btn btn-sm btn-link" id="analysis-cancel">Cancelar</button>
+                    </div>
+                    <div id="analysis-narratives" class="mb-3 d-none">
+                        <div class="small fw-semibold mb-1">Tramos narrativos</div>
+                        <div class="small text-secondary mb-2">Partes del anuncio que cumplen una función y pueden abarcar varias escenas. Tocá una para reproducirla.</div>
+                        <div id="analysis-narratives-list" class="list-group"></div>
+                    </div>
+                    <div id="analysis-list" class="list-group list-group-flush"></div>
+                </div>
+            </div>
+            <div class="card mt-4" id="transcript-panel" data-asset-id="@Model.Id" data-can-edit="@(User.CanEdit() ? "true" : "false")">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h2 class="h6 mb-0">Transcripción <span id="transcript-status" class="badge text-bg-secondary ms-2">Cargando…</span></h2>
+                        <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="transcript-start">Transcribir de nuevo</button>
+                    </div>
+                    <p class="small text-secondary mb-2" id="transcript-meta"></p>
+                    <div class="alert alert-danger small d-none" id="transcript-error"></div>
+                    <div id="transcript-lines" class="list-group list-group-flush"></div>
+                </div>
+            </div>
+        }
+    </div>
+    <div class="col-lg-5">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="h6">Archivo original</h2>
+                <dl class="row mb-0 small">
+                    <dt class="col-4">Tipo</dt><dd class="col-8">@(Model.Kind == MediaAssetKind.Video ? "Video" : "Imagen") · @Model.ContentType</dd>
+                    <dt class="col-4">Tamaño</dt><dd class="col-8">@Formatting.Bytes(Model.SizeBytes)</dd>
+                    @if (Model.ProcessingStatus == MediaProcessingStatus.Ready)
+                    {
+                        <dt class="col-4">Resolución</dt><dd class="col-8">@Model.Width×@Model.Height</dd>
+                        @if (Model.Kind == MediaAssetKind.Video)
+                        {
+                            <dt class="col-4">Duración</dt><dd class="col-8">@Formatting.Duration(Model.DurationMs)</dd>
+                            <dt class="col-4">Cuadros/s</dt><dd class="col-8">@Model.FrameRate?.ToString("0.##")</dd>
+                            <dt class="col-4">Audio</dt><dd class="col-8">@(Model.AudioCodec ?? "Sin audio")</dd>
+                        }
+                        <dt class="col-4">Códec</dt><dd class="col-8">@Model.VideoCodec · @Model.Container</dd>
+                    }
+                    <dt class="col-4">Procedencia</dt><dd class="col-8">@(Model.SourceKind == MediaSourceKind.Upload ? "Carga manual" : "Carpeta vigilada") <span class="text-break">@Model.SourceReference</span></dd>
+                    <dt class="col-4">Cargado (UTC)</dt><dd class="col-8">@Model.CreatedAt.ToString("yyyy-MM-dd HH:mm")</dd>
+                    <dt class="col-4">SHA-256</dt><dd class="col-8 text-break"><code>@Model.Sha256</code></dd>
+                </dl>
+                @if (Model.DuplicateOfAssetId is not null)
+                {
+                    <div class="alert alert-warning small mt-3 mb-0">
+                        Tiene la misma imagen que un archivo cargado antes:
+                        <a asp-action="Detail" asp-route-id="@Model.DuplicateOfAssetId">ver el archivo #@Model.DuplicateOfAssetId</a>.
+                        Conviene analizar y usar sólo uno de los dos.
+                    </div>
+                }
+                @if (Model.ProcessingStatus == MediaProcessingStatus.Pending)
+                {
+                    <div class="alert alert-secondary small mt-3 mb-0" data-status="Pending">Análisis técnico en curso. Hace falta que el Worker esté corriendo.</div>
+                }
+                @if (Model.ProcessingStatus == MediaProcessingStatus.Failed)
+                {
+                    <div class="alert alert-danger small mt-3 mb-0">No se pudo analizar: @Model.ProcessingError</div>
+                }
+                @* Siempre visible: un archivo puede quedar pendiente sin trabajo (por ejemplo, cargado antes de que existiera el análisis). *@
+                @if (User.CanEdit())
+                {
+                    <form asp-action="Reprocess" asp-route-id="@Model.Id" method="post" class="mt-3">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">Reanalizar</button>
+                    </form>
+                }
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-body">
+                <h2 class="h6">Derechos</h2>
+                <form asp-action="Rights" asp-route-id="@Model.Id" method="post">
+                    <fieldset disabled="@(!User.CanEdit())">
+                        <div class="mb-3">
+                            <label for="RightsHolder" class="form-label small">Titular</label>
+                            <input type="text" class="form-control" id="RightsHolder" name="RightsHolder" maxlength="200" value="@Model.RightsHolder" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="LicenseNotes" class="form-label small">Licencia y restricciones</label>
+                            <textarea class="form-control" id="LicenseNotes" name="LicenseNotes" maxlength="1000" rows="3">@Model.LicenseNotes</textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="RightsExpireOn" class="form-label small">Autorización vigente hasta</label>
+                            <input type="date" class="form-control" id="RightsExpireOn" name="RightsExpireOn" value="@Model.RightsExpireOn?.ToString("yyyy-MM-dd")" />
+                        </div>
+                        <div class="form-check mb-3">
+                            <input type="checkbox" class="form-check-input" id="ReuseAuthorized" name="ReuseAuthorized" value="true" checked="@Model.ReuseAuthorized" />
+                            <label for="ReuseAuthorized" class="form-check-label">Autorizado para reutilizar en nuevas creatividades</label>
+                        </div>
+                        @if (User.CanEdit())
+                        {
+                            <button type="submit" class="btn btn-primary">Guardar derechos</button>
+                        }
+                    </fieldset>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/media.js" asp-append-version="true"></script>
+    <script src="~/js/scenes.js" asp-append-version="true"></script>
+    <script src="~/js/transcript.js" asp-append-version="true"></script>
+    <script src="~/js/analysis.js" asp-append-version="true"></script>
+}

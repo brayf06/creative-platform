@@ -1,0 +1,37 @@
+@model List<BriefListItem>
+@{
+    ViewData["Title"] = "Briefs";
+}
+<div class="d-flex justify-content-between align-items-start mb-1">
+    <h1 class="h3 mb-0">Briefs de campaña</h1>
+    @if (User.CanEdit())
+    {
+        <a class="btn btn-primary" asp-action="Create">Nuevo brief</a>
+    }
+</div>
+<p class="text-secondary">@User.FindFirst(OrgClaims.OrganizationName)?.Value · Lo que se quiere lograr con cada campaña, para una marca. Desde cada brief se genera su plan de conceptos.</p>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead><tr><th>Brief</th><th>Marca</th><th>Ocasión</th><th>Videos</th><th>Plataforma</th><th>Creado (UTC)</th></tr></thead>
+            <tbody>
+                @foreach (BriefListItem brief in Model)
+                {
+                    <tr>
+                        <td><a asp-action="Detail" asp-route-id="@brief.Id">@brief.Name</a></td>
+                        <td>@brief.BrandName</td>
+                        <td>@brief.Occasion</td>
+                        <td>@brief.VideoCount</td>
+                        <td>@Formatting.Platform(brief.Platform)</td>
+                        <td class="text-nowrap">@brief.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.Count == 0)
+    {
+        <div class="card-body text-secondary">Todavía no hay briefs. Para crear uno hace falta una <a asp-controller="Brands" asp-action="Index">marca</a>.</div>
+    }
+</div>

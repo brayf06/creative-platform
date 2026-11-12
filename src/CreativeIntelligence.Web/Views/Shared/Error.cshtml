@@ -1,0 +1,12 @@
+﻿@model ErrorViewModel
+@{
+    ViewData["Title"] = "Error";
+}
+<div class="card mx-auto" style="max-width: 36rem;">
+    <div class="card-body">
+        <h1 class="h4">No se pudo completar la operación</h1>
+        <p class="mb-1">@Model.Message</p>
+        <p class="text-secondary small mb-3">Código @Model.Status</p>
+        <a class="btn btn-primary" asp-controller="Home" asp-action="Index">Volver al inicio</a>
+    </div>
+</div>

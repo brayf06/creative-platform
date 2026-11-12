@@ -1,0 +1,146 @@
+@model MetaOverview
+@{
+    ViewData["Title"] = "Rendimiento";
+}
+<div class="d-flex justify-content-between align-items-start">
+    <h1 class="h3 mb-1">Rendimiento en Meta Ads</h1>
+    <div>
+        <a class="btn btn-outline-primary" asp-action="Analysis">Análisis por componente</a>
+        <a class="btn btn-outline-primary" asp-controller="Experiments" asp-action="Index">Experimentos</a>
+    </div>
+</div>
+<p class="text-secondary">
+    @User.FindFirst(OrgClaims.OrganizationName)?.Value · Son <strong>observaciones</strong>: lo que pasó con cada anuncio. No dicen por
+    qué pasó: el presupuesto, la audiencia, la fecha y la oferta también influyen. Un solo resultado no convierte a una
+    creatividad en ganadora.
+</p>
+
+@if (User.CanEdit())
+{
+    <div class="card mb-4">
+        <div class="card-body">
+            <h2 class="h6">Importar un informe de Ads Manager (CSV)</h2>
+            <p class="small text-secondary">
+                Exportá el informe <strong>por anuncio y por día</strong>. Columnas obligatorias:
+                @string.Join(", ", MetaCsvParser.Required). Opcionales: cuenta, campaña y conjunto (identificador y nombre), clics en el
+                enlace, reproducciones de video de 3 segundos, ThruPlays, compras y valor de conversión de compras. Se aceptan los nombres en
+                español o en inglés. Volver a importar un día ya cargado reemplaza sus valores.
+            </p>
+            <form asp-action="Upload" method="post" enctype="multipart/form-data" class="row g-2 align-items-end">
+                <div class="col-md-6">
+                    <label for="File" class="form-label small">Archivo</label>
+                    <input type="file" class="form-control" id="File" name="File" accept=".csv" required />
+                </div>
+                <div class="col-md-3">
+                    <label for="Currency" class="form-label small">Moneda, si el archivo no la dice</label>
+                    <input type="text" class="form-control" id="Currency" name="Currency" value="USD" maxlength="3" pattern="[A-Za-z]{3}" required />
+                </div>
+                <div class="col-auto"><button type="submit" class="btn btn-primary">Importar</button></div>
+            </form>
+        </div>
+    </div>
+}
+
+@if (Model.Imports.Count > 0)
+{
+    <div class="card mb-4">
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0" id="meta-imports">
+                <thead><tr><th>Importación</th><th>Estado</th><th>Filas</th><th>Anuncios</th><th>Período</th><th>Observaciones</th></tr></thead>
+                <tbody>
+                    @foreach (MetaImportItem import in Model.Imports)
+                    {
+                        <tr data-status="@import.Status">
+                            <td>@import.FileName <span class="d-block small text-secondary">@import.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC</span></td>
+                            <td>
+                                @if (import.Status == MediaProcessingStatus.Ready)
+                                {
+                                    <span class="badge text-bg-success">Importado</span>
+                                }
+                                else if (import.Status == MediaProcessingStatus.Failed)
+                                {
+                                    <span class="badge text-bg-danger">Falló</span>
+                                }
+                                else
+                                {
+                                    <span class="badge text-bg-secondary">Importando…</span>
+                                }
+                            </td>
+                            <td>@import.Rows @if (import.Skipped > 0) { <span class="small text-secondary">(@import.Skipped descartadas)</span> }</td>
+                            <td>@import.Ads</td>
+                            <td class="text-nowrap">@(import.FirstDate is null ? "" : $"{import.FirstDate:yyyy-MM-dd} a {import.LastDate:yyyy-MM-dd}")</td>
+                            <td class="small">@import.Notes</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+<form asp-action="Index" method="get" class="row g-2 align-items-end mb-3">
+    <div class="col-auto">
+        <label for="From" class="form-label small">Desde</label>
+        <input type="date" class="form-control" id="From" name="From" value="@Model.Filter.From?.ToString("yyyy-MM-dd")" />
+    </div>
+    <div class="col-auto">
+        <label for="To" class="form-label small">Hasta</label>
+        <input type="date" class="form-control" id="To" name="To" value="@Model.Filter.To?.ToString("yyyy-MM-dd")" />
+    </div>
+    <div class="col-auto"><button type="submit" class="btn btn-outline-primary">Ver período</button></div>
+</form>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover table-sm align-middle mb-0" id="meta-ads">
+            <thead>
+                <tr>
+                    <th>Anuncio</th><th>Días</th><th class="text-end">Gasto</th><th class="text-end">Impresiones</th><th class="text-end">CTR</th>
+                    <th class="text-end">CPC</th><th class="text-end">CPM</th><th class="text-end">Compras</th><th class="text-end">CPA</th>
+                    <th class="text-end">ROAS</th><th>Creatividad</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (AdListItem ad in Model.Ads)
+                {
+                    <tr>
+                        <td>
+                            <a asp-action="Ad" asp-route-id="@ad.Id">@ad.Name</a>
+                            <span class="d-block small text-secondary">@ad.CampaignName · @ad.AdSetName</span>
+                        </td>
+                        <td>@ad.Metrics.Days</td>
+                        <td class="text-end text-nowrap">@ad.Currency @Formatting.Number(ad.Metrics.Spend, "0.00")</td>
+                        <td class="text-end">@ad.Metrics.Impressions</td>
+                        <td class="text-end">@Formatting.Percent(ad.Metrics.Ctr)</td>
+                        <td class="text-end">@Formatting.Number(ad.Metrics.Cpc, "0.00")</td>
+                        <td class="text-end">@Formatting.Number(ad.Metrics.Cpm, "0.00")</td>
+                        <td class="text-end">@Formatting.Number(ad.Metrics.Purchases, "0.##")</td>
+                        <td class="text-end">@Formatting.Number(ad.Metrics.Cpa, "0.00")</td>
+                        <td class="text-end">@Formatting.Number(ad.Metrics.Roas, "0.00")</td>
+                        <td>
+                            @if (ad.VariantId is null)
+                            {
+                                <span class="badge text-bg-secondary">Sin vincular</span>
+                            }
+                            else
+                            {
+                                <span class="badge text-bg-success">Video #@ad.VariantId</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.Ads.Count == 0)
+    {
+        <div class="card-body text-secondary">No hay métricas en ese período.</div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        // Mientras haya una importación en curso, la página se vuelve a pedir sola.
+        if (document.querySelector('#meta-imports [data-status="Pending"]')) { setTimeout(function () { location.reload(); }, 3000); }
+    </script>
+}

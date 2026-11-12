@@ -1,0 +1,66 @@
+@model BrandDetail
+@{
+    ViewData["Title"] = Model.Name;
+    bool canEdit = User.CanEdit();
+    List<BrandListViewModel> lists =
+    [
+        new(Model.Id, BrandItemKind.Product, "Productos", "Lo que vende la marca, con su margen.", "Producto", "Descripción", Model.Of(BrandItemKind.Product), canEdit),
+        new(Model.Id, BrandItemKind.Benefit, "Beneficios verificables", "Sólo los que se pueden demostrar.", "Beneficio", "Cómo se verifica", Model.Of(BrandItemKind.Benefit), canEdit),
+        new(Model.Id, BrandItemKind.Audience, "Públicos", "A quién le habla la marca.", "Público", "Descripción", Model.Of(BrandItemKind.Audience), canEdit),
+        new(Model.Id, BrandItemKind.Objection, "Objeciones", "Por qué alguien no compraría.", "Objeción", "Cómo se responde", Model.Of(BrandItemKind.Objection), canEdit),
+        new(Model.Id, BrandItemKind.AllowedMessage, "Mensajes permitidos", "Frases y promesas que la marca quiere decir.", "Mensaje", null, Model.Of(BrandItemKind.AllowedMessage), canEdit),
+        new(Model.Id, BrandItemKind.ForbiddenMessage, "Mensajes prohibidos", "Frases que la marca no puede decir. Un brief que contenga una no se guarda.", "Frase", "Por qué", Model.Of(BrandItemKind.ForbiddenMessage), canEdit),
+    ];
+}
+<nav class="small mb-2"><a asp-action="Index">Marcas</a> / @Model.Name</nav>
+<h1 class="h3 mb-3">@Model.Name</h1>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h2 class="h6">Perfil</h2>
+        <form asp-action="Update" asp-route-id="@Model.Id" method="post" class="row g-3">
+            <fieldset disabled="@(!canEdit)" class="row g-3 m-0 p-0">
+                <div class="col-md-8">
+                    <label for="Name" class="form-label small">Nombre</label>
+                    <input type="text" class="form-control" id="Name" name="Name" maxlength="150" value="@Model.Name" required />
+                </div>
+                <div class="col-md-4">
+                    <label for="MonthlyBudgetUsd" class="form-label small">Presupuesto publicitario mensual (USD)</label>
+                    <input type="number" class="form-control" id="MonthlyBudgetUsd" name="MonthlyBudgetUsd" min="0" step="0.01"
+                           value="@Model.MonthlyBudgetUsd?.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+                </div>
+                <div class="col-md-6">
+                    <label for="ValueProposition" class="form-label small">Propuesta de valor</label>
+                    <textarea class="form-control" id="ValueProposition" name="ValueProposition" rows="3" maxlength="1000">@Model.ValueProposition</textarea>
+                </div>
+                <div class="col-md-6">
+                    <label for="Objectives" class="form-label small">Objetivos comerciales</label>
+                    <textarea class="form-control" id="Objectives" name="Objectives" rows="3" maxlength="1000">@Model.Objectives</textarea>
+                </div>
+                <div class="col-md-6">
+                    <label for="CommunicationStyle" class="form-label small">Estilo de comunicación</label>
+                    <textarea class="form-control" id="CommunicationStyle" name="CommunicationStyle" rows="3" maxlength="1000">@Model.CommunicationStyle</textarea>
+                </div>
+                <div class="col-md-6">
+                    <label for="VisualIdentity" class="form-label small">Identidad visual</label>
+                    <textarea class="form-control" id="VisualIdentity" name="VisualIdentity" rows="3" maxlength="1000">@Model.VisualIdentity</textarea>
+                </div>
+                <div class="col-12">
+                    <label for="CommercialRestrictions" class="form-label small">Restricciones comerciales</label>
+                    <textarea class="form-control" id="CommercialRestrictions" name="CommercialRestrictions" rows="2" maxlength="1000">@Model.CommercialRestrictions</textarea>
+                </div>
+                @if (canEdit)
+                {
+                    <div class="col-12"><button type="submit" class="btn btn-primary">Guardar perfil</button></div>
+                }
+            </fieldset>
+        </form>
+    </div>
+</div>
+
+<div class="row g-4">
+    @foreach (BrandListViewModel list in lists)
+    {
+        <div class="col-lg-6"><partial name="_BrandList" model="list" /></div>
+    }
+</div>

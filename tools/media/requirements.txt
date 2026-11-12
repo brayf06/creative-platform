@@ -1,0 +1,4 @@
+# Dependencias de las herramientas de medios. Instalar en tools/media/.venv (ver CLAUDE.md).
+scenedetect==0.7.3
+opencv-python==5.0.0.93
+faster-whisper==1.2.1

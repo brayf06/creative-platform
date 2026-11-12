@@ -1,0 +1,73 @@
+@model PagedResult<JobItem>
+@{
+    ViewData["Title"] = "Trabajos";
+}
+<div class="d-flex justify-content-between align-items-center mb-1">
+    <h1 class="h3 mb-0">Trabajos en segundo plano</h1>
+    <span id="live-status" class="badge text-bg-secondary">Conectando…</span>
+</div>
+<p class="text-secondary">
+    Lo que la plataforma hace sola después de cada acción tuya: analizar un video, detectar sus escenas, transcribirlo, generar un
+    video, importar un informe. Si algo quedó "Fallido", acá está el motivo y el botón para reintentar.
+</p>
+
+@if (User.IsPlatformAdmin())
+{
+    <details class="card mb-4">
+        <summary class="card-body py-2 small">Herramienta de diagnóstico (sólo administradores de la plataforma)</summary>
+        <div class="card-body pt-0">
+            <p class="text-secondary small mb-3">Lanza un trabajo de prueba que recorre pasos con espera, para comprobar la cola, el progreso en vivo, los reintentos y la cancelación.</p>
+            <form id="diagnostic-form" class="row g-3 align-items-end">
+                <div class="col-auto">
+                    <label for="Steps" class="form-label small">Pasos</label>
+                    <input type="number" class="form-control" id="Steps" name="Steps" value="10" min="1" max="60" />
+                </div>
+                <div class="col-auto">
+                    <label for="StepDelayMs" class="form-label small">Espera por paso (ms)</label>
+                    <input type="number" class="form-control" id="StepDelayMs" name="StepDelayMs" value="1000" min="0" max="5000" />
+                </div>
+                <div class="col-auto">
+                    <label for="FailFirstAttempts" class="form-label small">Intentos que fallan</label>
+                    <input type="number" class="form-control" id="FailFirstAttempts" name="FailFirstAttempts" value="0" min="0" max="10" />
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-primary">Lanzar</button>
+                </div>
+            </form>
+        </div>
+    </details>
+}
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Qué hace</th>
+                    <th>Estado</th>
+                    <th style="min-width: 16rem;">Progreso</th>
+                    <th>Intentos</th>
+                    <th>Creado</th>
+                    <th>Error</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="jobs-body"></tbody>
+        </table>
+    </div>
+    <div id="jobs-empty" class="card-body text-secondary d-none">Todavía no hay trabajos.</div>
+</div>
+<partial name="_Pager" model="new PagerViewModel(Model.Page, Model.TotalPages, Model.Total)" />
+
+@section Scripts {
+    <script src="~/lib/signalr/signalr.min.js"></script>
+    <script>
+        window.jobsPage = {
+            jobs: @Json.Serialize(Model.Items),
+            canEdit: @Json.Serialize(User.CanEdit()),
+            isFirstPage: @Json.Serialize(Model.Page == 1)
+        };
+    </script>
+    <script src="~/js/jobs.js" asp-append-version="true"></script>
+}

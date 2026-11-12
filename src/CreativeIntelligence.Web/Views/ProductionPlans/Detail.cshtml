@@ -1,0 +1,89 @@
+@model ProductionPlanDetail
+@{
+    ViewData["Title"] = Model.Name;
+}
+<nav class="small mb-2"><a asp-action="Index">Plan de producción</a> / @Model.Name</nav>
+<h1 class="h3 mb-1">@Model.Name</h1>
+<p class="text-secondary">
+    Armado el @Model.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC con las ponderaciones versión @Model.WeightsVersion ·
+    @Model.Items.Count de @Model.RequestedItems hipótesis pedidas@(Model.Items.Count < Model.RequestedItems ? " (no había más con puntaje)" : "").
+    El puntaje ordena qué hacer primero; no predice el ROAS ni ningún resultado.
+</p>
+@if (Model.CurrentWeightsVersion != Model.WeightsVersion)
+{
+    <div class="alert alert-warning" id="plan-stale-weights">
+        Las ponderaciones cambiaron desde que se armó este plan (hoy rige la versión @Model.CurrentWeightsVersion). El orden de hoy puede ser otro:
+        miralo en <a asp-controller="Priorities" asp-action="Index">Prioridades</a> o armá un plan nuevo.
+    </div>
+}
+
+@foreach (ProductionPlanItemView item in Model.Items)
+{
+    <div class="card mb-3" data-position="@item.Position">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start gap-3">
+                <div>
+                    <div class="small text-secondary">
+                        @item.Position · @ProductionPlanRules.Role(item.Variable)
+                        <span class="badge @(item.Action == PlanAction.Apply ? "text-bg-success" : item.Action == PlanAction.Test ? "text-bg-info" : "text-bg-secondary")" data-action>
+                            @Formatting.PlanActionName(item.Action)
+                        </span>
+                    </div>
+                    <a class="fw-semibold" asp-controller="Hypotheses" asp-action="Detail" asp-route-id="@item.HypothesisId">@item.Statement</a>
+                </div>
+                <div class="text-end">
+                    <div class="h4 mb-0">@Formatting.Number(item.Score, "0.0")</div>
+                    <div class="small text-secondary">de 100</div>
+                </div>
+            </div>
+            <p class="mt-2 mb-2" data-justification>@item.Justification</p>
+            @if (item.LearningId is not null)
+            {
+                <p class="small mb-2">
+                    <span class="text-secondary">Recomendación del</span>
+                    <a asp-controller="Learnings" asp-action="Detail" asp-route-id="@item.LearningId">aprendizaje</a><span class="text-secondary">:</span>
+                    @item.Recommendation
+                </p>
+                @if (item.LearningStatus != LearningStatus.Active)
+                {
+                    <div class="alert alert-warning py-2 small" data-stale-learning>
+                        Ese aprendizaje ya no está vigente (@Formatting.LearningStatusName(item.LearningStatus ?? LearningStatus.Invalidated).ToLowerInvariant()):
+                        esta propuesta quedó sin su respaldo. Armá un plan nuevo.
+                    </div>
+                }
+            }
+            <div class="d-flex flex-wrap gap-2">
+                @if (item.AssetId is not null)
+                {
+                    <a class="btn btn-sm btn-outline-secondary" href="/Media/Detail/@item.AssetId?at=@item.StartMs">
+                        Ver el fragmento (@Formatting.Duration(item.StartMs) – @Formatting.Duration(item.EndMs))
+                    </a>
+                }
+                @if (User.CanEdit() && item.Action == PlanAction.Apply)
+                {
+                    <a class="btn btn-sm btn-outline-primary" asp-controller="Recipes" asp-action="Create">Armar una receta</a>
+                }
+                @if (User.CanEdit() && item.Action != PlanAction.Apply)
+                {
+                    <a class="btn btn-sm btn-outline-primary" asp-controller="Experiments" asp-action="Create" asp-route-hypothesisId="@item.HypothesisId">Probar con un experimento</a>
+                }
+            </div>
+            <details class="mt-2">
+                <summary class="small">Desglose del puntaje</summary>
+                <table class="table table-sm align-middle mb-0 mt-2">
+                    <thead><tr><th>Factor</th><th class="text-end">Valor</th><th>De dónde salió</th></tr></thead>
+                    <tbody>
+                        @foreach (FactorValue factor in item.Factors)
+                        {
+                            <tr class="@(factor.Value is null ? "text-secondary" : "")">
+                                <td>@Formatting.Factor(factor.Factor)</td>
+                                <td class="text-end">@Formatting.Number(factor.Value, "0.00")</td>
+                                <td class="small">@factor.Explanation</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </details>
+        </div>
+    </div>
+}

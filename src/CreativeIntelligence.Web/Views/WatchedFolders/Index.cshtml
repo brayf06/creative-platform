@@ -1,0 +1,102 @@
+@model WatchedFolderList
+@{
+    ViewData["Title"] = "Carpetas vigiladas";
+}
+<h1 class="h3 mb-1">Carpetas vigiladas</h1>
+<p class="text-secondary">@User.FindFirst(OrgClaims.OrganizationName)?.Value</p>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h2 class="h6">Vigilar una carpeta</h2>
+        <p class="text-secondary small mb-2">
+            Los archivos nuevos de la carpeta y sus subcarpetas se ingresan solos a la biblioteca. Los archivos de la carpeta
+            no se modifican ni se mueven. Sólo se puede vigilar una carpeta que esté dentro de estas ubicaciones del servidor:
+        </p>
+        @if (Model.AllowedRoots.Count == 0)
+        {
+            <div class="alert alert-warning small">No hay ubicaciones permitidas configuradas (<code>Ingest:AllowedRoots</code>).</div>
+        }
+        else
+        {
+            <ul class="small" id="allowed-roots">
+                @foreach (string root in Model.AllowedRoots)
+                {
+                    <li><code>@root</code></li>
+                }
+            </ul>
+        }
+        <form asp-action="Create" method="post" class="row g-3 align-items-end">
+            <div class="col-lg-6">
+                <label for="Path" class="form-label small">Ruta de la carpeta en el servidor</label>
+                <input type="text" class="form-control" id="Path" name="Path" maxlength="500" required />
+            </div>
+            <div class="col-lg-3">
+                <label for="RightsHolder" class="form-label small">Titular de los derechos</label>
+                <input type="text" class="form-control" id="RightsHolder" name="RightsHolder" maxlength="200" />
+            </div>
+            <div class="col-lg-3">
+                <label for="RightsExpireOn" class="form-label small">Autorización vigente hasta</label>
+                <input type="date" class="form-control" id="RightsExpireOn" name="RightsExpireOn" />
+            </div>
+            <div class="col-lg-8">
+                <label for="LicenseNotes" class="form-label small">Licencia y restricciones</label>
+                <input type="text" class="form-control" id="LicenseNotes" name="LicenseNotes" maxlength="1000" />
+            </div>
+            <div class="col-lg-2 d-flex align-items-end">
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="ReuseAuthorized" name="ReuseAuthorized" value="true" />
+                    <label for="ReuseAuthorized" class="form-check-label">Autorizado para reutilizar</label>
+                </div>
+            </div>
+            <div class="col-lg-2">
+                <button type="submit" class="btn btn-primary w-100">Vigilar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table mb-0 align-middle">
+            <thead><tr><th>Carpeta</th><th>Estado</th><th>Derechos</th><th>Archivos vistos</th><th>Última revisión (UTC)</th><th></th></tr></thead>
+            <tbody>
+                @foreach (WatchedFolderItem folder in Model.Folders)
+                {
+                    <tr>
+                        <td class="text-break"><code>@folder.Path</code></td>
+                        <td><span class="badge @(folder.IsActive ? "text-bg-success" : "text-bg-secondary")">@(folder.IsActive ? "Activa" : "Pausada")</span></td>
+                        <td>
+                            <span class="badge @(folder.ReuseAuthorized ? "text-bg-success" : "text-bg-secondary")">@(folder.ReuseAuthorized ? "Autorizado" : "Sin autorización")</span>
+                            <span class="small">@folder.RightsHolder</span>
+                        </td>
+                        <td>@folder.FileCount</td>
+                        <td>
+                            @if (folder.LastScanAt is null)
+                            {
+                                <span class="text-secondary small">Todavía no se revisó</span>
+                            }
+                            else
+                            {
+                                <div class="text-nowrap">@folder.LastScanAt.Value.ToString("yyyy-MM-dd HH:mm")</div>
+                                <div class="small text-secondary">@folder.LastScanSummary</div>
+                            }
+                        </td>
+                        <td class="text-end text-nowrap">
+                            <form asp-action="Scan" asp-route-id="@folder.Id" method="post" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-outline-primary">Revisar ahora</button>
+                            </form>
+                            <form asp-action="Active" asp-route-id="@folder.Id" method="post" class="d-inline">
+                                <input type="hidden" name="active" value="@(folder.IsActive ? "false" : "true")" />
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">@(folder.IsActive ? "Pausar" : "Activar")</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.Folders.Count == 0)
+    {
+        <div class="card-body text-secondary">Todavía no hay carpetas vigiladas.</div>
+    }
+</div>

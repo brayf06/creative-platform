@@ -1,0 +1,54 @@
+@model List<MemberItem>
+@{
+    ViewData["Title"] = "Miembros";
+}
+<h1 class="h3 mb-1">Miembros</h1>
+<p class="text-secondary">@User.FindFirst(OrgClaims.OrganizationName)?.Value</p>
+<div class="card mb-4">
+    <div class="card-body">
+        <h2 class="h6">Agregar miembro</h2>
+        <p class="text-secondary small">Si el email ya tiene usuario en la plataforma se lo vincula; si no, se crea con la contraseña inicial.</p>
+        <form asp-action="Create" method="post" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label for="Email" class="form-label small">Email</label>
+                <input type="email" class="form-control" id="Email" name="Email" maxlength="256" required />
+            </div>
+            <div class="col-md-3">
+                <label for="FullName" class="form-label small">Nombre y apellido</label>
+                <input type="text" class="form-control" id="FullName" name="FullName" maxlength="150" />
+            </div>
+            <div class="col-md-2">
+                <label for="Password" class="form-label small">Contraseña inicial</label>
+                <input type="password" class="form-control" id="Password" name="Password" maxlength="100" autocomplete="new-password" />
+            </div>
+            <div class="col-md-2">
+                <label for="Role" class="form-label small">Rol</label>
+                <select class="form-select" id="Role" name="Role">
+                    <option value="Viewer">Lector</option>
+                    <option value="Editor">Editor</option>
+                    <option value="Admin">Administrador</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">Agregar</button>
+            </div>
+        </form>
+    </div>
+</div>
+<div class="card">
+    <table class="table mb-0 align-middle">
+        <thead><tr><th>Email</th><th>Nombre</th><th>Rol</th><th>Estado</th><th>Alta (UTC)</th></tr></thead>
+        <tbody>
+            @foreach (MemberItem member in Model)
+            {
+                <tr>
+                    <td>@member.Email</td>
+                    <td>@member.FullName</td>
+                    <td>@member.Role</td>
+                    <td><span class="badge @(member.IsActive ? "text-bg-success" : "text-bg-secondary")">@(member.IsActive ? "Activo" : "Inactivo")</span></td>
+                    <td>@member.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

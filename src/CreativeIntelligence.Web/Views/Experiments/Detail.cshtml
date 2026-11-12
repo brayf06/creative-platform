@@ -1,0 +1,139 @@
+@model ExperimentDetail
+@{
+    ViewData["Title"] = Model.Name;
+    ExperimentResult result = Model.Result;
+}
+<nav class="small mb-2"><a asp-action="Index">Experimentos</a> / @Model.Name</nav>
+<h1 class="h3 mb-1">@Model.Name</h1>
+<p class="text-secondary">
+    Cambia: @Formatting.Variable(Model.Variable) · Se mide con: @Formatting.Metric(Model.Metric) ·
+    del @Model.StartDate.ToString("yyyy-MM-dd") al @(Model.EndDate?.ToString("yyyy-MM-dd") ?? "día de hoy (sin fecha de fin)") ·
+    mínimo @Model.MinImpressionsPerArm impresiones por brazo
+</p>
+<p>
+    <span class="text-secondary">Hipótesis:</span> @Model.Hypothesis
+    @if (Model.HypothesisId is not null)
+    {
+        <a class="small" asp-controller="Hypotheses" asp-action="Detail" asp-route-id="@Model.HypothesisId">(ver en la memoria de aprendizaje)</a>
+    }
+</p>
+
+<div class="card mb-4" id="experiment-result">
+    <div class="card-body">
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+            <h2 class="h6 mb-0">Resultado</h2>
+            @switch (result.Verdict)
+            {
+                case ExperimentVerdict.ClearDifference:
+                    <span class="badge @(result.Warnings.Count > 0 ? "text-bg-secondary" : "text-bg-success")">Diferencia clara</span>
+                    break;
+                case ExperimentVerdict.ProbableDifference:
+                    <span class="badge @(result.Warnings.Count > 0 ? "text-bg-secondary" : "text-bg-info")">Diferencia probable</span>
+                    break;
+                case ExperimentVerdict.NoDifference:
+                    <span class="badge text-bg-secondary">Sin diferencia distinguible</span>
+                    break;
+                default:
+                    <span class="badge text-bg-warning">Datos insuficientes</span>
+                    break;
+            }
+            @if (result.Provisional)
+            {
+                <span class="badge text-bg-warning">Provisional</span>
+            }
+            @if (result.Warnings.Count > 0)
+            {
+                <span class="badge text-bg-danger">Diseño con problemas</span>
+            }
+        </div>
+        <p id="experiment-summary">@result.Summary</p>
+        @if (result.Provisional)
+        {
+            <p class="small text-secondary">
+                Mirar un experimento antes de que termine y frenarlo cuando "ya se ve" una diferencia aumenta el riesgo de que esa diferencia
+                sea azar. Conviene esperar al fin del período.
+            </p>
+        }
+        @if (result.Warnings.Count > 0)
+        {
+            <div class="alert alert-warning mb-3" id="experiment-warnings">
+                <div class="fw-semibold">Problemas de diseño que debilitan la conclusión</div>
+                <ul class="mb-0">
+                    @foreach (string warning in result.Warnings)
+                    {
+                        <li>@warning</li>
+                    }
+                </ul>
+            </div>
+        }
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0" id="experiment-arms">
+                <thead>
+                    <tr>
+                        <th>Brazo</th><th>Anuncio</th><th class="text-end">Impresiones</th><th class="text-end">Gasto</th>
+                        <th class="text-end">@Formatting.Metric(Model.Metric)</th><th class="text-end">Frente al control</th><th>Señal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (ArmResult arm in result.Arms)
+                    {
+                        <tr>
+                            <td>@arm.Name @if (arm.IsControl) { <span class="badge text-bg-light border">Control</span> }</td>
+                            <td><a asp-controller="Meta" asp-action="Ad" asp-route-id="@arm.AdId">@arm.AdName</a></td>
+                            <td class="text-end">@arm.Metrics.Impressions</td>
+                            <td class="text-end">@Formatting.Number(arm.Metrics.Spend, "0.00")</td>
+                            <td class="text-end">@Formatting.Percent(arm.Rate)</td>
+                            <td class="text-end">@(arm.Lift is null ? "—" : (arm.Lift.Value * 100).ToString("+0;-0") + " %")</td>
+                            <td>
+                                @switch (arm.Signal)
+                                {
+                                    case SignalStrength.Clear:
+                                        <span>Clara @(arm.Higher ? "a favor" : "en contra")</span>
+                                        break;
+                                    case SignalStrength.Probable:
+                                        <span>Probable @(arm.Higher ? "a favor" : "en contra")</span>
+                                        break;
+                                    case SignalStrength.NotDistinguishable:
+                                        <span class="text-secondary">No se distingue del azar</span>
+                                        break;
+                                    default:
+                                        <span class="text-secondary">—</span>
+                                        break;
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card" id="experiment-conclusion">
+    <div class="card-body">
+        <h2 class="h6">Conclusión</h2>
+        @if (Model.ConcludedAt is not null)
+        {
+            <p class="mb-1" style="white-space: pre-wrap;">@Model.Conclusion</p>
+            <p class="small text-secondary mb-0">Cerrado el @Model.ConcludedAt.Value.ToString("yyyy-MM-dd HH:mm") UTC.</p>
+        }
+        else if (User.CanEdit())
+        {
+            <form asp-action="Conclude" asp-route-id="@Model.Id" method="post">
+                <label for="Conclusion" class="form-label small">Qué concluís y qué decidís. Lo escribe una persona: el sistema calcula el resultado, no decide por vos.</label>
+                <textarea class="form-control mb-2" id="Conclusion" name="Conclusion" rows="3" maxlength="2000" required></textarea>
+                <button type="submit" class="btn btn-outline-primary">Cerrar el experimento</button>
+            </form>
+        }
+        else
+        {
+            <p class="small text-secondary mb-0">Todavía no se cerró.</p>
+        }
+        @if (User.CanEdit() && result.Verdict != ExperimentVerdict.NotEnoughData)
+        {
+            <hr />
+            <a class="btn btn-sm btn-outline-primary" id="experiment-learn" asp-controller="Learnings" asp-action="Create" asp-route-experimentId="@Model.Id">Registrar un aprendizaje</a>
+            <span class="small text-secondary">Guarda en la memoria qué se aprendió, con la confianza que estos datos permiten.</span>
+        }
+    </div>
+</div>
